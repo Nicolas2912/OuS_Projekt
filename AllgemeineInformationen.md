@@ -6,7 +6,7 @@ Rückmeldung bis zum 30.11.2023 an Herrn Hermanski mit:
 * Studiengang
 * Betreuer
 
-*Abgabe*: Eine Woche vpr mündl. Prüfung (wahrscheinlich *21.3.2024*)
+**Abgabe**: Eine Woche vpr mündl. Prüfung (wahrscheinlich **21.3.2024**)
 
 - Erfolgreiche Prüfung nur, wenn Abgabe schriftliche Ausarbeitung termingerecht erfolgt
 
