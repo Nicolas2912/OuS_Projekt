@@ -63,3 +63,31 @@ Der Prozess der Beobachtung, Aktion, Umgebung, Belohnung und des Lernens wird it
 3. **Belohnungsfunktion**: Wie sieht eine angemessene Belohnungsfunktion aus, damit das Problem möglichst effizient gelöst werden kann?
 4. **RL-Alorithmus**: Welcher RL-Algorithmus bietet sich besonders für NGS an? Je nach Problem anderer Algorithmus besser?
 5. **Aktionsraum**: Kontinuierlich oder diskret?
+
+## Mögliche RL-Algorithmen:
+
+- **ARS** (Augmented Random Search): Ein evolutionärer Optimierungsalgorithmus, der zufällige Richtungen im Parameterraum erkundet und aufgrund der erhaltenen Belohnung aktualisiert wird.
+
+- **A2C** (Advantage Actor-Critic): Ein Policy-Gradienten-Algorithmus, der die Vorteilsschätzung verwendet, um die Aktionsrichtlinie zu verbessern, und eine kritische Funktion zur Bewertung der Richtlinienleistung.
+
+- **DDPG** (Deep Deterministic Policy Gradient / BOX): Ein Algorithmus für kontinuierliche Aktionen, der die Ideen von Deep Q-Networks (DQN) auf den Policy-Gradienten-Ansatz anwendet.
+
+- **DQN** (Deep Q-Network / Discrete): Ein Q-Learning-Algorithmus, der tiefe neuronale Netzwerke verwendet, um die Q-Funktion zu approximieren und diskrete Aktionen zu wählen.
+
+- **HER** (Hindsight Experience Replay): Ein Verfahren zur Verbesserung des Lernens aus Fehlern, indem alternative Belohnungen verwendet werden, wenn die erwarteten Ergebnisse nicht erreicht wurden.
+
+- **PPO** (Proximal Policy Optimization): Ein Policy-Gradienten-Algorithmus, der die Policy-Update-Regeln so anpasst, dass große Änderungen vermieden werden, um die Stabilität des Lernens zu verbessern.
+
+- **QR-DQN** (Quantile Regression DQN / Discrete): Ein Ansatz, der die Verteilung der Q-Werte schätzt, um eine robustere Schätzung der Rückkehr zu ermöglichen.
+
+- **RecurrentPPO**: Eine Version von PPO, die rekurrente neuronale Netzwerke verwendet, um zeitliche Abhängigkeiten in den Daten zu modellieren.
+
+- **SAC** (Soft Actor-Critic / BOX): Ein Algorithmus für kontinuierliche Aktionen, der auf der Maximierung der erwarteten Belohnung basiert und eine Entropieregularisierung verwendet, um die Erkundung zu fördern.
+
+- **TD3** (Twin Delayed DDPG / BOX): Eine verbesserte Version von DDPG, die eine doppelte Kritik und eine verzögerte Aktualisierung der Richtlinie verwendet, um die Stabilität des Trainings zu verbessern.
+
+- **TQC** (Twin Q Correction / BOX): Eine Weiterentwicklung von TD3, die die Q-Werte korrigiert, um die Stabilität und Leistungsfähigkeit des Algorithmus zu verbessern.
+
+- **TRPO** (Trust Region Policy Optimization): Ein Policy-Gradienten-Algorithmus, der die Aktualisierungen der Richtlinie begrenzt, um die Schritte im Parameterraum zu stabilisieren.
+
+- **Maskable PPO** (Discrete): Eine Variante von PPO, die die Aktionsmaske unterstützt, um Aktionen mit unterschiedlichen Längen oder Dimensionen zu behandeln.
