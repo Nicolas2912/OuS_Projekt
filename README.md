@@ -60,6 +60,7 @@ Der Prozess der Beobachtung, Aktion, Umgebung, Belohnung und des Lernens wird it
 - Gleichungen sind von Anfang an festgelegt und die "Umegebung" ändert sich nicht, wenn wir eine Aktion ausführen
    - RL-Agent wählt Aktion, aber die "Umgebung" (tatsächliches Optimimum / tatsächliche Lösung) bleibt gleich
    - **Statische Umgebung**
+- Reinforcement Learning ist in den meisten Fällen besonders hilfreich/sinnvoll, wenn sich die Umgebung (stetig) und evtl. mit den gewählten Aktionen verändert (komplexe Umgebungen).
 
 ## Wichtige Fragestellungen bzgl. des Lösens von NGS mit einem RL-Agent
 
