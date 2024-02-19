@@ -56,6 +56,11 @@ Der Prozess der Beobachtung, Aktion, Umgebung, Belohnung und des Lernens wird it
    - **Simulated Annealing**
    - **Particle Swarm Optimization (PSO)**
 
+## Besonderheiten bei nichtlinearen Gleichungssystemen
+- Gleichungen sind von Anfang an festgelegt und die "Umegebung" ändert sich nicht, wenn wir eine Aktion ausführen
+   - RL-Agent wählt Aktion, aber die "Umgebung" (tatsächliches Optimimum / tatsächliche Lösung) bleibt gleich
+   - **Statische Umgebung**
+
 ## Wichtige Fragestellungen bzgl. des Lösens von NGS mit einem RL-Agent
 
 1. **Modellierung der Umgebung**: Wie kann die Umgebung des Agents so modelliert werden, dass sie die Nichtlinearität des Gleichungssystems angemessen widerspiegelt?
