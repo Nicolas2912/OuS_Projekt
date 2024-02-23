@@ -6,15 +6,21 @@ import numdifftools as nd
 from scipy.optimize import minimize
 import time
 import matplotlib.pyplot as plt
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, DDPG, TD3
 import os
 from stable_baselines3.common import results_plotter
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.results_plotter import load_results, ts2xy
+from stable_baselines3.common.noise import NormalActionNoise
+from stable_baselines3.common.env_checker import check_env
+
+import torch
+
+print(f"CUDA: ", torch.cuda.is_available())
 
 log_dir = "./tmp/"
 os.makedirs(log_dir, exist_ok=True)
-from stable_baselines3.common.env_checker import check_env
 
 
 def distance_func(point, func, *args):
@@ -32,13 +38,36 @@ def distance_func(point, func, *args):
     return abs(func(*point, *args))
 
 
+def distance_func_discrete(point, x_array, y_array):
+    all_points = np.vstack((x_array, y_array)).T
+    distances = np.sqrt(np.sum((all_points - np.array([point[0], point[1]])) ** 2, axis=1))
+
+    return np.min(distances)
+
+
+def discrete_nse(x_min, x_max, num_points=1000):
+    eq1 = lambda x: x ** 6+x**5+x**4-3*x**3-0.5*x**2+1/x
+    eq2 = lambda x: x**2-np.cos(x**2)+4-np.exp(x)
+
+    x = np.linspace(x_min, x_max, num_points)
+    #x = x[x != 0]
+
+    yeq1 = np.vectorize(eq1)
+    yeq2 = np.vectorize(eq2)
+
+    y_arrayeq1 = yeq1(x)
+    y_arrayeq2 = yeq2(x)
+
+    return np.array([y_arrayeq1, y_arrayeq2]), x
+
+
 def nse():
     """
     System of nonlinear equations.
     :return: Numpy array of equations.
     """
-    eq1 = lambda x, y: x ** 2 + y ** 2 - 1
-    eq2 = lambda x, y: x - y + 1
+    eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
+    eq2 = lambda x: np.sin(2 * x)
     return np.array([eq1, eq2])
 
 
@@ -89,27 +118,70 @@ def plot_function_and_point(func, point, closet_point, xlim=(-1.5, 1.5), ylim=(-
     # plt.show()
 
 
-def plot_nse(equations):
-    x = np.linspace(-2, 2, 100)
-    y = np.linspace(-2, 2, 100)
-    X, Y = np.meshgrid(x, y)
-    Z1 = equations[0](X, Y)
-    Z2 = equations[1](X, Y)
-    plt.contour(X, Y, Z1, [0], colors='r')
-    plt.contour(X, Y, Z2, [0], colors='b')
+def plot_nse(equations, x_array):
+    eq1 = equations[0]
+    eq2 = equations[1]
+
+    y = eq1(x_array)
+    y1 = eq2(x_array)
+
+    plt.plot(x_array, y)
+    plt.plot(x_array, y1)
+    plt.ylim(-10, 10)
+    plt.xlim(-10, 10)
     plt.grid()
     plt.show()
+
+
+def plot_discrete_nse(y_array, x_min, x_max, y_min, y_max, num_points=1000):
+    x = np.linspace(x_min, x_max, num_points)
+    x = x[x != 0]
+
+    plt.plot(x, y_array[0])
+    plt.plot(x, y_array[1])
+
+    plt.ylim(y_min, y_max)
+
+    plt.grid()
+    plt.show()
+
+
+class SaveActionsCallback(BaseCallback):
+    def __init__(self, check_freq: int, actions_list: list):
+        super(SaveActionsCallback, self).__init__()
+        self.check_freq = check_freq
+        self.actions_list = actions_list
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.check_freq == 0:
+            action, _ = self.model.predict(self.training_env.envs[0].last_obs, deterministic=True)
+            self.actions_list.append(action)
+        return True
 
 
 class CustomEnv(gym.Env):
     def __init__(self, nse):
         super(CustomEnv, self).__init__()
-        self.action_space = gym.spaces.Box(low=-10.0, high=10.0, shape=(2,))
-        # self.state = self.get_distance(self.action_space.sample())
+        self.x_min = -10.0
+        self.x_max = 10.0
+        self.y_min = -10.0
+        self.y_max = 10.0
+        self.action_space = gym.spaces.Box(low=np.array([self.x_min, self.y_min]),
+                                           high=np.array([self.x_max, self.y_max]),
+                                           dtype=np.float32)
         self.observation_space = gym.spaces.Box(low=-1000.0, high=1000.0, shape=(2,))
-        self.state = np.array([random.uniform(-10, 10), random.uniform(-10, 10)])  # self.state = point in space
+        self.state = np.array(
+            [random.uniform(self.x_min, self.x_max),
+             random.uniform(self.y_min, self.y_max)])  # self.state = point in space
         self.nse = nse
+        self.nse_discrete, self.x_array = discrete_nse(self.x_min, self.x_max)
         self.best_action = []
+        self.last_obs = None
+        self.actions = []
+        self.distances = []
+
+        # plot nse
+        plot_nse(self.nse, self.x_array)
 
     def get_distance(self, point):
         """
@@ -119,25 +191,55 @@ class CustomEnv(gym.Env):
         """
         return np.array([distance_func(point, eq) for eq in self.nse])
 
+    def get_distance_discrete(self, point):
+        return np.array([distance_func_discrete(point, self.x_array, eq) for eq in self.nse_discrete])
+
     def step(self, action):
         """
         Execute one time step within the environment.
         :param action: Action to take. (Tuple containing the coordinates of the point)
         :return: state, reward, done, info
         """
-        # reward negative distance
-        self.state = action
-        distances = self.get_distance(action)
 
-        reward = np.sum(-distances)
-        done = False
-        truncated = False
-        if np.sum(distances) <= 0.005:  # if distance is less than 0.005. Can be adjustet
-            done = True
+        discrete = True
+        self.actions.append(action)
+        self.distances.append(sum(self.get_distance_discrete(action)))
+        # just print better action
+        if self.distances[-1] <= min(self.distances):
+            print("Best action:", self.actions[-1])
+            print("Distance:", self.distances[-1])
+            print()
 
-        self.best_action.append(action)
+        if discrete:
+            self.state = action
+            distances = self.get_distance_discrete(action)
 
-        return self.state, reward, done, truncated, {}
+            reward = np.sum(-distances)
+            done = False
+            truncated = False
+            if np.sum(distances) <= 0.0001:  # if distance is less than ... Can be adjustet
+                done = True
+            self.best_action.append(action)
+            self.last_obs = self.state
+
+            return self.state, reward, done, truncated, {}
+        else:
+            # reward negative distance
+            self.state = action
+            distances = self.get_distance(action)
+
+            reward = np.sum(-distances)
+            done = False
+            truncated = False
+            if np.sum(distances) <= 0.1:  # if distance is less than ... Can be adjustet
+                done = True
+
+            self.best_action.append(action)
+            self.last_obs = self.state
+
+            # print(self.best_action[-1])
+
+            return self.state, reward, done, truncated, {}
 
     def reset(self, seed=None):
         """
@@ -145,22 +247,36 @@ class CustomEnv(gym.Env):
         :param seed: Seed must be set
         :return: state, {}
         """
-        self.state = np.array([random.uniform(-10, 10), random.uniform(-10, 10)],
+        discrete = True
+
+        self.state = np.array([random.uniform(self.x_min, self.y_min), random.uniform(self.x_max, self.y_max)],
                               dtype=np.float32)  # Update to have two points
         # sort self.best_action
-        if len(self.best_action) > 0:
+        if len(self.best_action) > 0 and not discrete:
             distance_action_mapping = [(action, np.sum(self.get_distance(action))) for action in self.best_action]
             # sort by distance ascending
             best = min(distance_action_mapping, key=lambda x: x[1])
             print("Best action:", best[0], "Distance:", best[1])
             # print first action with lowest distance
 
+        if len(self.best_action) > 0 and discrete:
+            distance_action_mapping = [(action, np.sum(self.get_distance_discrete(action))) for action in
+                                       self.best_action]
+            # sort by distance ascending
+            best = min(distance_action_mapping, key=lambda x: x[1])
+            print("Best action:", best[0], "Distance:", best[1])
+            # print first action with lowest distance
+
         self.best_action = []
+        self.last_obs = self.state
 
         return self.state, {}
 
 
 if __name__ == '__main__':
+    # --- plot discrete nse ---
+    # equations = discrete_nse(-10.0, 8.0, -10.0, 10.0)
+    # plot_discrete_nse(equations, -10.0, 8.0, -10.0, 10.0)
 
     # init environment
     env = CustomEnv(nse())
@@ -169,34 +285,49 @@ if __name__ == '__main__':
     # check_env(env)
 
     # create model
-    model = PPO("MlpPolicy", env, verbose=1, ent_coef=0.1, tensorboard_log=log_dir)
+    # model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_dir, ent_coef=0.15)
+
+    # action noise
+    n_actions = env.action_space.shape[-1]
+    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
+    model = DDPG("MlpPolicy", env, verbose=1, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
+                 buffer_size=1000)
 
     # train model
-    model.learn(total_timesteps=int(2e5), progress_bar=False, tb_log_name="PPO_NSE")
+    log = True
+    if log:
+        actions = []
+        callback = SaveActionsCallback(1, actions)
+        model.learn(total_timesteps=int(2e4), progress_bar=False, tb_log_name="TD3_NSE")
+    else:
+        actions = []
+        callback = SaveActionsCallback(1, actions)
+        model.learn(total_timesteps=int(2e5), progress_bar=True, callback=callback)
 
     # save model
-    model.save("ppo_nse")
+    model.save("td3_nse")
 
     # plot results
-    results_plotter.plot_results([log_dir], int(2e5), results_plotter.X_TIMESTEPS, "PPO NSE")
+    plot = False
+    if plot:
+        results_plotter.plot_results([log_dir], int(2e5), results_plotter.X_TIMESTEPS, "PPO NSE")
+        # Display the plot
+        plt.show()
 
-    # Display the plot
-    plt.show()
     # --- testing ---
 
     # load model
-    model = PPO.load("ppo_nse", env=env)
-
-    observation, _ = env.reset()  # Only take the observation part of the tuple
-    print(f"Observation: {observation}")
-
-    for i in range(25):
-        action, _ = model.predict(observation, deterministic=True)
-        observation, reward, done, truncated, info = env.step(action)
-        print("Action:", action)
-        print(f"Distance: {np.sum(env.get_distance(action))}")
-
-        if done:
-            print("Episode finished after {} timesteps".format(i + 1))
-            break
-
+    # model = PPO.load("td3_nse", env=env)
+    #
+    # observation, _ = env.reset()  # Only take the observation part of the tuple
+    # print(f"Observation: {observation}")
+    #
+    # for i in range(25):
+    #     action, _ = model.predict(observation, deterministic=True)
+    #     observation, reward, done, truncated, info = env.step(action)
+    #     print("Action:", action)
+    #     # print(f"Distance: {np.sum(env.get_distance(action))}")
+    #
+    #     if done:
+    #         print("Episode finished after {} timesteps".format(i + 1))
+    #         break
