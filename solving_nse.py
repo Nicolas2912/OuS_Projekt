@@ -45,20 +45,23 @@ def distance_func_discrete(point, x_array, y_array):
     return np.min(distances)
 
 
-def discrete_nse(x_min, x_max, num_points=1000):
-    eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
-    eq2 = lambda x: np.sin(2 * x)
+def discrete_nse(x_min, x_max, num_points=100000):
+    eq1 = lambda x: x + 1
+    eq2 = lambda x: np.sqrt(1 - x ** 2)
+    eq3 = lambda x: -np.sqrt(1 - x ** 2)
 
     x = np.linspace(x_min, x_max, num_points)
     # x = x[x != 0]
 
     yeq1 = np.vectorize(eq1)
     yeq2 = np.vectorize(eq2)
+    yeq3 = np.vectorize(eq3)
 
     y_arrayeq1 = yeq1(x)
     y_arrayeq2 = yeq2(x)
+    y_arrayeq3 = yeq3(x)
 
-    return np.array([y_arrayeq1, y_arrayeq2]), x
+    return np.array([y_arrayeq1, y_arrayeq2, y_arrayeq3]), x
 
 
 def nse():
@@ -66,9 +69,10 @@ def nse():
     System of nonlinear equations.
     :return: Numpy array of equations.
     """
-    eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
-    eq2 = lambda x: np.sin(2 * x)
-    return np.array([eq1, eq2])
+    eq1 = lambda x: x + 1
+    eq2 = lambda x: np.sqrt(1 - x ** 2)
+    eq3 = lambda x: -np.sqrt(1 - x ** 2)
+    return np.array([eq1, eq2, eq3])
 
 
 def plot_function_and_point(func, point, closet_point, xlim=(-1.5, 1.5), ylim=(-1.5, 1.5)):
@@ -114,17 +118,13 @@ def plot_function_and_point(func, point, closet_point, xlim=(-1.5, 1.5), ylim=(-
     # plt.show()
 
 
-def plot_nse(equations, x_array):
-    eq1 = equations[0]
-    eq2 = equations[1]
-
-    y = eq1(x_array)
-    y1 = eq2(x_array)
-
-    plt.plot(x_array, y)
-    plt.plot(x_array, y1)
-    plt.ylim(-10, 10)
-    plt.xlim(-10, 10)
+def plot_nse(equations, x_array, points=None):
+    for eq in equations:
+        y = eq(x_array)
+        plt.plot(x_array, y)
+    if points is not None:
+        for point in points:
+            plt.scatter(point[0], point[1], color='red')
     plt.grid()
     plt.show()
 
@@ -162,10 +162,10 @@ class SaveActionsCallback(BaseCallback):
 class CustomEnv(gym.Env):
     def __init__(self, nse, plot=False, discrete=False, dimensions=2):
         super(CustomEnv, self).__init__()
-        self.x_min = -10.0
-        self.x_max = 10.0
-        self.y_min = -10.0
-        self.y_max = 10.0
+        self.x_min = -1.0
+        self.x_max = 1.0
+        self.y_min = -1.0
+        self.y_max = 1.0
         self.action_space = gym.spaces.Box(low=np.array([self.x_min, self.y_min]),
                                            high=np.array([self.x_max, self.y_max]),
                                            dtype=np.float32)
@@ -203,11 +203,14 @@ class CustomEnv(gym.Env):
         :return: state, reward, done, info
         """
 
-        discrete = False
+        discrete = True
         self.actions.append(action)
-        self.distances.append(sum(self.get_distance_discrete(action)))
+        if discrete:
+            self.distances.append(sum(self.get_distance_discrete(action)))
+        else:
+            self.distances.append(sum(self.get_distance(action)))
 
-        good_points_threshold = 0.10
+        good_points_threshold = 0.1
         # just print better action
         if self.distances[-1] <= min(self.distances):
             print("Best action:", self.actions[-1])
@@ -226,7 +229,7 @@ class CustomEnv(gym.Env):
             reward = np.sum(-distances)
             done = False
             truncated = False
-            if np.sum(distances) <= 1.0:  # if distance is less than ... Can be adjustet
+            if np.sum(distances) <= 0.1:  # if distance is less than ... Can be adjustet
                 done = True
             # self.best_action.append(action)
             self.last_obs = self.state
@@ -259,7 +262,7 @@ class CustomEnv(gym.Env):
         :param seed: Seed must be set
         :return: state, {}
         """
-        discrete = False
+        discrete = True
 
         self.state = np.array([random.uniform(self.x_min, self.y_min), random.uniform(self.x_max, self.y_max)],
                               dtype=np.float32)  # Update to have two points
@@ -291,7 +294,7 @@ if __name__ == '__main__':
     # plot_discrete_nse(equations, -10.0, 8.0, -10.0, 10.0)
 
     # init environment
-    env = CustomEnv(nse())
+    env = CustomEnv(nse(), plot=False, discrete=True)
 
     # check environment
     # check_env(env)
@@ -308,7 +311,7 @@ if __name__ == '__main__':
     # model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.15)
 
     # train model
-    log = True
+    log = False
     if log:
         actions = []
         callback = SaveActionsCallback(1, actions)
@@ -316,7 +319,7 @@ if __name__ == '__main__':
     else:
         actions = []
         callback = SaveActionsCallback(1, actions)
-        model.learn(total_timesteps=int(5e3), progress_bar=False)
+        model.learn(total_timesteps=int(5e2), progress_bar=False)
 
     actions, distances = env.best_action, env.distances
     good_points = env.good_points
@@ -324,11 +327,11 @@ if __name__ == '__main__':
     print(f"Length good points: {len(good_points)}")
     # print(f"Good points: {good_points}")
 
-    x_min = -5.0
-    x_max = 5.0
-    y_min = -5.0
-    y_max = 5.0
-    plot_discrete_nse(discrete_nse(x_min, x_max)[0], x_min, x_max, y_min, y_max, points=good_points)
+    x_min = -3.0
+    x_max = 3.0
+    y_min = -3.0
+    y_max = 3.0
+    plot_nse(nse(), np.linspace(x_min, x_max, 100000), points=good_points)
 
     # save model
     model.save("ddpg_nse")
