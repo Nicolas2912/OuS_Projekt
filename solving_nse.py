@@ -1,4 +1,3 @@
-import numpy as np
 import gymnasium as gym
 import random
 import numpy as np
@@ -6,7 +5,7 @@ import numdifftools as nd
 from scipy.optimize import minimize
 import time
 import matplotlib.pyplot as plt
-from stable_baselines3 import PPO, DDPG, TD3
+from stable_baselines3 import PPO, DDPG, TD3, SAC
 import os
 from stable_baselines3.common import results_plotter
 from stable_baselines3.common.callbacks import BaseCallback
@@ -23,19 +22,20 @@ log_dir = "./tmp/"
 os.makedirs(log_dir, exist_ok=True)
 
 
-def distance_func(point, func, *args):
-    """
-    Calculate the distance between a point and a function.
+def distance_func_continuous(point, func):
+    point = np.array(point)
 
-    Parameters:
-        point (tuple): A tuple containing the coordinates of the point.
-        func (callable): The function to calculate the distance to.
-        *args: Additional arguments to pass to the function.
+    # Define a function that calculates the distance between a point and the function
+    def distance_point_to_function_helper(x):
+        # Calculate the distance between the point and the function at point x
+        return np.linalg.norm(point - np.array([x, func(x)]))
 
-    Returns:
-        float: The distance between the point and the function.
-    """
-    return abs(func(*point, *args))
+    # Use scipy.optimize to find the minimum distance
+    from scipy.optimize import minimize_scalar
+    result = minimize_scalar(distance_point_to_function_helper)
+
+    # Return the minimum distance found
+    return result.fun
 
 
 def distance_func_discrete(point, x_array, y_array):
@@ -46,11 +46,11 @@ def distance_func_discrete(point, x_array, y_array):
 
 
 def discrete_nse(x_min, x_max, num_points=1000):
-    eq1 = lambda x: x ** 6+x**5+x**4-3*x**3-0.5*x**2+1/x
-    eq2 = lambda x: x**2-np.cos(x**2)+4-np.exp(x)
+    eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
+    eq2 = lambda x: np.sin(2 * x)
 
     x = np.linspace(x_min, x_max, num_points)
-    #x = x[x != 0]
+    # x = x[x != 0]
 
     yeq1 = np.vectorize(eq1)
     yeq2 = np.vectorize(eq2)
@@ -69,10 +69,6 @@ def nse():
     eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
     eq2 = lambda x: np.sin(2 * x)
     return np.array([eq1, eq2])
-
-
-def get_overall_distance(point, nse):
-    return np.sum([distance_func(point, eq) for eq in nse])
 
 
 def plot_function_and_point(func, point, closet_point, xlim=(-1.5, 1.5), ylim=(-1.5, 1.5)):
@@ -133,14 +129,18 @@ def plot_nse(equations, x_array):
     plt.show()
 
 
-def plot_discrete_nse(y_array, x_min, x_max, y_min, y_max, num_points=1000):
+def plot_discrete_nse(y_array, x_min, x_max, y_min, y_max, num_points=1000, points=[]):
     x = np.linspace(x_min, x_max, num_points)
-    x = x[x != 0]
+    # x = x[x != 0]
 
     plt.plot(x, y_array[0])
     plt.plot(x, y_array[1])
 
     plt.ylim(y_min, y_max)
+
+    if len(points) > 0:
+        for point in points:
+            plt.scatter(point[0], point[1], color='red')
 
     plt.grid()
     plt.show()
@@ -160,7 +160,7 @@ class SaveActionsCallback(BaseCallback):
 
 
 class CustomEnv(gym.Env):
-    def __init__(self, nse):
+    def __init__(self, nse, plot=False, discrete=False, dimensions=2):
         super(CustomEnv, self).__init__()
         self.x_min = -10.0
         self.x_max = 10.0
@@ -179,9 +179,11 @@ class CustomEnv(gym.Env):
         self.last_obs = None
         self.actions = []
         self.distances = []
+        self.best_distances = []
+        self.good_points = []
 
-        # plot nse
-        plot_nse(self.nse, self.x_array)
+        if plot:
+            plot_nse(self.nse, self.x_array)
 
     def get_distance(self, point):
         """
@@ -189,7 +191,7 @@ class CustomEnv(gym.Env):
         :param point: Tuple containing the coordinates of the point.
         :return: Numpy array of distances between the point and each equation.
         """
-        return np.array([distance_func(point, eq) for eq in self.nse])
+        return np.array([distance_func_continuous(point, eq) for eq in self.nse])
 
     def get_distance_discrete(self, point):
         return np.array([distance_func_discrete(point, self.x_array, eq) for eq in self.nse_discrete])
@@ -201,25 +203,32 @@ class CustomEnv(gym.Env):
         :return: state, reward, done, info
         """
 
-        discrete = True
+        discrete = False
         self.actions.append(action)
         self.distances.append(sum(self.get_distance_discrete(action)))
+
+        good_points_threshold = 0.10
         # just print better action
         if self.distances[-1] <= min(self.distances):
             print("Best action:", self.actions[-1])
             print("Distance:", self.distances[-1])
             print()
+            self.best_action.append(action)
+            self.best_distances.append(self.distances[-1])
 
         if discrete:
             self.state = action
             distances = self.get_distance_discrete(action)
 
+            if np.sum(distances) <= good_points_threshold:
+                self.good_points.append(action)
+
             reward = np.sum(-distances)
             done = False
             truncated = False
-            if np.sum(distances) <= 0.0001:  # if distance is less than ... Can be adjustet
+            if np.sum(distances) <= 1.0:  # if distance is less than ... Can be adjustet
                 done = True
-            self.best_action.append(action)
+            # self.best_action.append(action)
             self.last_obs = self.state
 
             return self.state, reward, done, truncated, {}
@@ -228,13 +237,16 @@ class CustomEnv(gym.Env):
             self.state = action
             distances = self.get_distance(action)
 
+            if np.sum(distances) <= good_points_threshold:
+                self.good_points.append(action)
+
             reward = np.sum(-distances)
             done = False
             truncated = False
-            if np.sum(distances) <= 0.1:  # if distance is less than ... Can be adjustet
+            if np.sum(distances) <= 1.0:  # if distance is less than ... Can be adjustet
                 done = True
 
-            self.best_action.append(action)
+            # self.best_action.append(action)
             self.last_obs = self.state
 
             # print(self.best_action[-1])
@@ -247,7 +259,7 @@ class CustomEnv(gym.Env):
         :param seed: Seed must be set
         :return: state, {}
         """
-        discrete = True
+        discrete = False
 
         self.state = np.array([random.uniform(self.x_min, self.y_min), random.uniform(self.x_max, self.y_max)],
                               dtype=np.float32)  # Update to have two points
@@ -256,7 +268,7 @@ class CustomEnv(gym.Env):
             distance_action_mapping = [(action, np.sum(self.get_distance(action))) for action in self.best_action]
             # sort by distance ascending
             best = min(distance_action_mapping, key=lambda x: x[1])
-            print("Best action:", best[0], "Distance:", best[1])
+            # print("Best action:", best[0], "Distance:", best[1])
             # print first action with lowest distance
 
         if len(self.best_action) > 0 and discrete:
@@ -264,10 +276,10 @@ class CustomEnv(gym.Env):
                                        self.best_action]
             # sort by distance ascending
             best = min(distance_action_mapping, key=lambda x: x[1])
-            print("Best action:", best[0], "Distance:", best[1])
+            # print("Best action:", best[0], "Distance:", best[1])
             # print first action with lowest distance
 
-        self.best_action = []
+        # self.best_action = []
         self.last_obs = self.state
 
         return self.state, {}
@@ -290,44 +302,35 @@ if __name__ == '__main__':
     # action noise
     n_actions = env.action_space.shape[-1]
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-    model = DDPG("MlpPolicy", env, verbose=1, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
-                 buffer_size=1000)
+    model = DDPG("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
+                  buffer_size=1000)
+    # model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,)
+    # model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.15)
 
     # train model
     log = True
     if log:
         actions = []
         callback = SaveActionsCallback(1, actions)
-        model.learn(total_timesteps=int(2e4), progress_bar=False, tb_log_name="TD3_NSE")
+        model.learn(total_timesteps=int(5e3), progress_bar=False, tb_log_name="DDPG_NSE")
     else:
         actions = []
         callback = SaveActionsCallback(1, actions)
-        model.learn(total_timesteps=int(2e5), progress_bar=True, callback=callback)
+        model.learn(total_timesteps=int(5e3), progress_bar=False)
+
+    actions, distances = env.best_action, env.distances
+    good_points = env.good_points
+
+    print(f"Length good points: {len(good_points)}")
+    # print(f"Good points: {good_points}")
+
+    x_min = -5.0
+    x_max = 5.0
+    y_min = -5.0
+    y_max = 5.0
+    plot_discrete_nse(discrete_nse(x_min, x_max)[0], x_min, x_max, y_min, y_max, points=good_points)
 
     # save model
-    model.save("td3_nse")
+    model.save("ddpg_nse")
 
-    # plot results
-    plot = False
-    if plot:
-        results_plotter.plot_results([log_dir], int(2e5), results_plotter.X_TIMESTEPS, "PPO NSE")
-        # Display the plot
-        plt.show()
-
-    # --- testing ---
-
-    # load model
-    # model = PPO.load("td3_nse", env=env)
-    #
-    # observation, _ = env.reset()  # Only take the observation part of the tuple
-    # print(f"Observation: {observation}")
-    #
-    # for i in range(25):
-    #     action, _ = model.predict(observation, deterministic=True)
-    #     observation, reward, done, truncated, info = env.step(action)
-    #     print("Action:", action)
-    #     # print(f"Distance: {np.sum(env.get_distance(action))}")
-    #
-    #     if done:
-    #         print("Episode finished after {} timesteps".format(i + 1))
-    #         break
+    # tensorboard befehl: tensorboard --logdir ./tmp/
