@@ -14,7 +14,7 @@ Eine genauere Erkärung der Funktionen und Methoden findet sich in `Beschreibung
 
 2. Installieren der erforderlichen Abhängigkeiten:
 
-``` pip install gym numpy numdifftools scipy matplotlib stable-baselines3 torch ```
+``` pip install gym numpy scipy matplotlib stable-baselines3[extra] torch ```
 
 3. Ausführung des Skriptes
 
@@ -22,6 +22,6 @@ Eine genauere Erkärung der Funktionen und Methoden findet sich in `Beschreibung
 
 ## Ergebnisse
 
-Das trainierte Modell (`<name>`) und die Trainingsprotokolle werden im aktuellen Verzeichnis gespeichert. Der Trainingsfortschritt kann mit `TensorBoard` visualisiert werden.
+Das trainierte Modell (`<name>`) und die Trainingsprotokolle werden im aktuellen Verzeichnis gespeichert. Der Trainingsfortschritt kann mit `TensorBoard` (sofern installiert) visualisiert werden.
 
 ``` tensorboard --logdir ./tmp/ ```
