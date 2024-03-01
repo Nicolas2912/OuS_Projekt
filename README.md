@@ -14,9 +14,6 @@ Eine genauere Erkärung der Funktionen und Methoden findet sich in `Beschreibung
 
 2. Installieren der erforderlichen Abhängigkeiten:
 
-<<<<<<< Updated upstream
-``` pip install gym numpy scipy matplotlib stable-baselines3[extra] torch ```
-=======
 ``` pip install gymnasium numpy scipy matplotlib stable-baselines3[extra] torch ```
 
 In manchen Shells wie z.B. zsh ist es notwendig Anführungszeichen zu verwenden. 
@@ -27,7 +24,6 @@ Notiz: Bei der Installation von `stable-baselines3[extra]` kann es dazu kommen, 
 und die Installation nicht abgeschlossen werden kann. Um diesen Fehler zu beheben, kann folgender Befehl verwendet werden:
 
 ``` pip install --only-binary ":all:" grpcio ```
->>>>>>> Stashed changes
 
 3. Ausführung des Skriptes
 
