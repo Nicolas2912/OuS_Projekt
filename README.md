@@ -18,7 +18,7 @@ Eine genauere Erkärung der Funktionen und Methoden findet sich in `Beschreibung
 
 In manchen Shells wie z.B. zsh ist es notwendig Anführungszeichen zu verwenden. 
 
-Z.B.: `pip install stable-baselines3[extra]`
+Z.B.: `pip install 'stable-baselines3[extra]'`
 
 Notiz: Bei der Installation von `stable-baselines3[extra]` kann es dazu kommen, dass `grpcio` nicht installiert werden kann
 und die Installation nicht abgeschlossen werden kann. Um diesen Fehler zu beheben, kann folgender Befehl verwendet werden:
