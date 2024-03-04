@@ -1,7 +1,6 @@
 import gymnasium as gym
 import random
 import numpy as np
-import numdifftools as nd
 from scipy.optimize import minimize
 import time
 import matplotlib.pyplot as plt
