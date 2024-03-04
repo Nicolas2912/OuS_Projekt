@@ -46,22 +46,19 @@ def distance_func_discrete(point, x_array, y_array):
 
 
 def discrete_nse(x_min, x_max, num_points=100000):
-    eq1 = lambda x: x + 1
-    eq2 = lambda x: np.sqrt(1 - x ** 2)
-    eq3 = lambda x: -np.sqrt(1 - x ** 2)
+    eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
+    eq2 = lambda x: np.sin(2*x)
 
     x = np.linspace(x_min, x_max, num_points)
     # x = x[x != 0]
 
     yeq1 = np.vectorize(eq1)
     yeq2 = np.vectorize(eq2)
-    yeq3 = np.vectorize(eq3)
 
     y_arrayeq1 = yeq1(x)
     y_arrayeq2 = yeq2(x)
-    y_arrayeq3 = yeq3(x)
 
-    return np.array([y_arrayeq1, y_arrayeq2, y_arrayeq3]), x
+    return np.array([y_arrayeq1, y_arrayeq2]), x
 
 
 def nse():
@@ -69,10 +66,9 @@ def nse():
     System of nonlinear equations.
     :return: Numpy array of equations.
     """
-    eq1 = lambda x: x + 1
-    eq2 = lambda x: np.sqrt(1 - x ** 2)
-    eq3 = lambda x: -np.sqrt(1 - x ** 2)
-    return np.array([eq1, eq2, eq3])
+    eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
+    eq2 = lambda x: np.sin(2*x)
+    return np.array([eq1, eq2])
 
 
 def plot_function_and_point(func, point, closet_point, xlim=(-1.5, 1.5), ylim=(-1.5, 1.5)):
@@ -125,6 +121,9 @@ def plot_nse(equations, x_array, points=None):
     if points is not None:
         for point in points:
             plt.scatter(point[0], point[1], color='red')
+
+    plt.xlim(-1.5, 3.0)
+    plt.ylim(-1.5, 1.5)
     plt.grid()
     plt.show()
 
@@ -160,12 +159,12 @@ class SaveActionsCallback(BaseCallback):
 
 
 class CustomEnv(gym.Env):
-    def __init__(self, nse, plot=False, discrete=False, dimensions=2):
+    def __init__(self, nse, plot=False, discrete=False):
         super(CustomEnv, self).__init__()
         self.x_min = -1.0
-        self.x_max = 1.0
-        self.y_min = -1.0
-        self.y_max = 1.0
+        self.x_max = -0.4
+        self.y_min = -1.2
+        self.y_max = -0.8
         self.action_space = gym.spaces.Box(low=np.array([self.x_min, self.y_min]),
                                            high=np.array([self.x_max, self.y_max]),
                                            dtype=np.float32)
@@ -229,7 +228,7 @@ class CustomEnv(gym.Env):
             reward = np.sum(-distances)
             done = False
             truncated = False
-            if np.sum(distances) <= 0.1:  # if distance is less than ... Can be adjustet
+            if np.sum(distances) <= 1.0:  # if distance is less than reset
                 done = True
             # self.best_action.append(action)
             self.last_obs = self.state
@@ -246,7 +245,7 @@ class CustomEnv(gym.Env):
             reward = np.sum(-distances)
             done = False
             truncated = False
-            if np.sum(distances) <= 1.0:  # if distance is less than ... Can be adjustet
+            if np.sum(distances) <= 1.0:  # if distance is less than reset
                 done = True
 
             # self.best_action.append(action)
@@ -319,7 +318,7 @@ if __name__ == '__main__':
     else:
         actions = []
         callback = SaveActionsCallback(1, actions)
-        model.learn(total_timesteps=int(5e2), progress_bar=False)
+        model.learn(total_timesteps=int(5e3), progress_bar=False)
 
     actions, distances = env.best_action, env.distances
     good_points = env.good_points
