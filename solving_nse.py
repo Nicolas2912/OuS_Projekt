@@ -12,6 +12,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.env_checker import check_env
+import structlog
 
 import torch
 
@@ -20,6 +21,7 @@ print(f"CUDA: ", torch.cuda.is_available())
 log_dir = "./tmp/"
 os.makedirs(log_dir, exist_ok=True)
 
+logger = structlog.get_logger()
 
 def distance_func_continuous(point, func):
     point = np.array(point)
@@ -160,10 +162,10 @@ class SaveActionsCallback(BaseCallback):
 class CustomEnv(gym.Env):
     def __init__(self, nse, plot=False, discrete=False):
         super(CustomEnv, self).__init__()
-        self.x_min = -1.0
-        self.x_max = -0.4
-        self.y_min = -1.2
-        self.y_max = -0.8
+        self.x_min = -10.0
+        self.x_max = 10.0
+        self.y_min = -10.0
+        self.y_max = 10.0
         self.action_space = gym.spaces.Box(low=np.array([self.x_min, self.y_min]),
                                            high=np.array([self.x_max, self.y_max]),
                                            dtype=np.float32)
@@ -216,6 +218,9 @@ class CustomEnv(gym.Env):
             print()
             self.best_action.append(action)
             self.best_distances.append(self.distances[-1])
+
+        if self.distances[-1] <= good_points_threshold and len(self.good_points) > 0:
+            print(f"Good point: {self.good_points[-1]}\tDistance: {self.distances[-1]}")
 
         if discrete:
             self.state = action
@@ -293,6 +298,7 @@ if __name__ == '__main__':
 
     # init environment
     env = CustomEnv(nse(), plot=False, discrete=True)
+    logger.info("Environment created")
 
     # check environment
     # check_env(env)
@@ -305,6 +311,7 @@ if __name__ == '__main__':
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
     model = DDPG("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
                   buffer_size=1000)
+    logger.info("Model created")
     # model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,)
     # model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.15)
 
@@ -313,16 +320,18 @@ if __name__ == '__main__':
     if log:
         actions = []
         callback = SaveActionsCallback(1, actions)
+        logger.info("Start training")
         model.learn(total_timesteps=int(5e3), progress_bar=False, tb_log_name="DDPG_NSE")
     else:
         actions = []
         callback = SaveActionsCallback(1, actions)
-        model.learn(total_timesteps=int(5e3), progress_bar=False)
+        logger.info("Start training")
+        model.learn(total_timesteps=int(3e3), progress_bar=False)
 
     actions, distances = env.best_action, env.distances
     good_points = env.good_points
 
-    print(f"Length good points: {len(good_points)}")
+    print(f"Number of good points: {len(good_points)}")
     # print(f"Good points: {good_points}")
 
     x_min = -3.0
