@@ -58,8 +58,10 @@ def discrete_nse(x_min, x_max, num_points=100000):
 
     y_arrayeq1 = yeq1(x)
     y_arrayeq2 = yeq2(x)
+    # point = x
+    res = (eq1(x) - eq2(x))**2
 
-    return np.array([y_arrayeq1, y_arrayeq2]), x
+    return res
 
 
 def nse():
@@ -69,6 +71,7 @@ def nse():
     """
     eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
     eq2 = lambda x: np.sin(2*x)
+
     return np.array([eq1, eq2])
 
 
@@ -116,6 +119,8 @@ def plot_function_and_point(func, point, closet_point, xlim=(-1.5, 1.5), ylim=(-
 
 
 def plot_nse(equations, x_array, points=None):
+    # make bigger plot
+    plt.figure(figsize=(10, 10))
     for eq in equations:
         y = eq(x_array)
         plt.plot(x_array, y)
@@ -123,8 +128,8 @@ def plot_nse(equations, x_array, points=None):
         for point in points:
             plt.scatter(point[0], point[1], color='red')
 
-    plt.xlim(-1.5, 3.0)
-    plt.ylim(-1.5, 1.5)
+    plt.xlim(-3.0, 3.0)
+    plt.ylim(-3.0, 3.0)
     plt.grid()
     plt.show()
 
@@ -162,19 +167,21 @@ class SaveActionsCallback(BaseCallback):
 class CustomEnv(gym.Env):
     def __init__(self, nse, plot=False, discrete=False):
         super(CustomEnv, self).__init__()
-        self.x_min = -10.0
-        self.x_max = 10.0
-        self.y_min = -10.0
-        self.y_max = 10.0
-        self.action_space = gym.spaces.Box(low=np.array([self.x_min, self.y_min]),
-                                           high=np.array([self.x_max, self.y_max]),
-                                           dtype=np.float32)
-        self.observation_space = gym.spaces.Box(low=-1000.0, high=1000.0, shape=(2,))
+        self.x_min = -3.0
+        self.x_max = -0.5
+        self.y_min = -5.0
+        self.y_max = 5.0
+        #self.action_space = gym.spaces.Box(low=np.array([self.x_min, self.y_min]),
+         #                                  high=np.array([self.x_max, self.y_max]),
+          #                                 dtype=np.float32)
+        self.action_space = gym.spaces.Box(low=self.x_min, high=self.x_max) # action is just x value
+
+        self.observation_space = gym.spaces.Box(low=-np.infty, high=np.infty, shape=(2,))
         self.state = np.array(
             [random.uniform(self.x_min, self.x_max),
              random.uniform(self.y_min, self.y_max)])  # self.state = point in space
         self.nse = nse
-        self.nse_discrete, self.x_array = discrete_nse(self.x_min, self.x_max)
+        res = discrete_nse(self.x_min, self.x_max)
         self.best_action = []
         self.last_obs = None
         self.actions = []
@@ -194,7 +201,11 @@ class CustomEnv(gym.Env):
         return np.array([distance_func_continuous(point, eq) for eq in self.nse])
 
     def get_distance_discrete(self, point):
-        return np.array([distance_func_discrete(point, self.x_array, eq) for eq in self.nse_discrete])
+        eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
+        eq2 = lambda x: np.sin(2 * x)
+
+        res = (eq1(point) - eq2(point))**2
+        return res
 
     def step(self, action):
         """
@@ -206,34 +217,37 @@ class CustomEnv(gym.Env):
         discrete = True
         self.actions.append(action)
         if discrete:
-            self.distances.append(sum(self.get_distance_discrete(action)))
-        else:
-            self.distances.append(sum(self.get_distance(action)))
+            self.distances.append(self.get_distance_discrete(action))
 
-        good_points_threshold = 0.1
+        good_points_threshold = 1e-8
         # just print better action
         if self.distances[-1] <= min(self.distances):
             print("Best action:", self.actions[-1])
-            print("Distance:", self.distances[-1])
+            print("Residuum:", self.distances[-1])
             print()
             self.best_action.append(action)
             self.best_distances.append(self.distances[-1])
 
         if self.distances[-1] <= good_points_threshold and len(self.good_points) > 0:
-            print(f"Good point: {self.good_points[-1]}\tDistance: {self.distances[-1]}")
+            print(f"Good point: {self.good_points[-1]}\tResiduum: {self.distances[-1]}")
 
         if discrete:
             self.state = action
-            distances = self.get_distance_discrete(action)
+            residuum = self.get_distance_discrete(action)
 
-            if np.sum(distances) <= good_points_threshold:
+            if residuum <= good_points_threshold:
                 self.good_points.append(action)
 
-            reward = np.sum(-distances)
+            reward = np.exp(-residuum)
+            if residuum > 0.1:
+                reward -= residuum
+            if residuum <= good_points_threshold:
+                reward += 100
             done = False
             truncated = False
-            if np.sum(distances) <= 1.0:  # if distance is less than reset
+            if residuum <= good_points_threshold:  # if distance is less than reset
                 done = True
+                reward += 100
             # self.best_action.append(action)
             self.last_obs = self.state
 
@@ -309,7 +323,7 @@ if __name__ == '__main__':
     # action noise
     n_actions = env.action_space.shape[-1]
     action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-    model = DDPG("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
+    model = TD3("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
                   buffer_size=1000)
     logger.info("Model created")
     # model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,)
@@ -326,19 +340,26 @@ if __name__ == '__main__':
         actions = []
         callback = SaveActionsCallback(1, actions)
         logger.info("Start training")
-        model.learn(total_timesteps=int(3e3), progress_bar=False)
+        model.learn(total_timesteps=int(6e3), progress_bar=True)
 
     actions, distances = env.best_action, env.distances
     good_points = env.good_points
 
+    print(good_points)
     print(f"Number of good points: {len(good_points)}")
     # print(f"Good points: {good_points}")
+
+    print(f"Residuum Average: {np.mean(good_points)}")
 
     x_min = -3.0
     x_max = 3.0
     y_min = -3.0
     y_max = 3.0
-    plot_nse(nse(), np.linspace(x_min, x_max, 100000), points=good_points)
+    nse_system = nse()
+    eqs = [lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2, lambda x: np.sin(2 * x)]
+    good_points_y_values = [eqs[0](point) for point in good_points]
+    good_points_xy =[(point, eqs[0](point)) for point in good_points]
+    plot_nse(eqs, np.linspace(x_min, x_max, 100000), points=good_points_xy)
 
     # save model
     model.save("ddpg_nse")
