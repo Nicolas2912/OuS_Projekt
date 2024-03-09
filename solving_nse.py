@@ -167,7 +167,7 @@ class SaveActionsCallback(BaseCallback):
 class CustomEnv(gym.Env):
     def __init__(self, nse, plot=False, discrete=False):
         super(CustomEnv, self).__init__()
-        self.x_min = -3.0
+        self.x_min = -300.0
         self.x_max = -0.5
         self.y_min = -5.0
         self.y_max = 5.0
@@ -188,6 +188,7 @@ class CustomEnv(gym.Env):
         self.distances = []
         self.best_distances = []
         self.good_points = []
+        self.best_action_so_far = None
 
         if plot:
             plot_nse(self.nse, self.x_array)
@@ -219,7 +220,7 @@ class CustomEnv(gym.Env):
         if discrete:
             self.distances.append(self.get_distance_discrete(action))
 
-        good_points_threshold = 1e-8
+        good_points_threshold = 1e-4
         # just print better action
         if self.distances[-1] <= min(self.distances):
             print("Best action:", self.actions[-1])
@@ -243,6 +244,9 @@ class CustomEnv(gym.Env):
                 reward -= residuum
             if residuum <= good_points_threshold:
                 reward += 100
+            if len(self.best_distances) > 0 and residuum < min(self.best_distances):
+                reward += 50
+                self.best_action_so_far = action
             done = False
             truncated = False
             if residuum <= good_points_threshold:  # if distance is less than reset
@@ -283,21 +287,9 @@ class CustomEnv(gym.Env):
 
         self.state = np.array([random.uniform(self.x_min, self.y_min), random.uniform(self.x_max, self.y_max)],
                               dtype=np.float32)  # Update to have two points
-        # sort self.best_action
-        if len(self.best_action) > 0 and not discrete:
-            distance_action_mapping = [(action, np.sum(self.get_distance(action))) for action in self.best_action]
-            # sort by distance ascending
-            best = min(distance_action_mapping, key=lambda x: x[1])
-            # print("Best action:", best[0], "Distance:", best[1])
-            # print first action with lowest distance
 
-        if len(self.best_action) > 0 and discrete:
-            distance_action_mapping = [(action, np.sum(self.get_distance_discrete(action))) for action in
-                                       self.best_action]
-            # sort by distance ascending
-            best = min(distance_action_mapping, key=lambda x: x[1])
-            # print("Best action:", best[0], "Distance:", best[1])
-            # print first action with lowest distance
+        #if self.best_action_so_far is not None:
+        #    self.action_space = gym.spaces.Box(low=self.best_action_so_far - 10.0, high=self.best_action_so_far + 10.0)
 
         # self.best_action = []
         self.last_obs = self.state
