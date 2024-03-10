@@ -23,6 +23,7 @@ os.makedirs(log_dir, exist_ok=True)
 
 logger = structlog.get_logger()
 
+
 def distance_func_continuous(point, func):
     point = np.array(point)
 
@@ -48,7 +49,7 @@ def distance_func_discrete(point, x_array, y_array):
 
 def discrete_nse(x_min, x_max, num_points=100000):
     eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
-    eq2 = lambda x: np.sin(2*x)
+    eq2 = lambda x: np.sin(2 * x)
 
     x = np.linspace(x_min, x_max, num_points)
     # x = x[x != 0]
@@ -59,7 +60,7 @@ def discrete_nse(x_min, x_max, num_points=100000):
     y_arrayeq1 = yeq1(x)
     y_arrayeq2 = yeq2(x)
     # point = x
-    res = (eq1(x) - eq2(x))**2
+    res = (eq1(x) - eq2(x)) ** 2
 
     return res
 
@@ -70,7 +71,7 @@ def nse():
     :return: Numpy array of equations.
     """
     eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
-    eq2 = lambda x: np.sin(2*x)
+    eq2 = lambda x: np.sin(2 * x)
 
     return np.array([eq1, eq2])
 
@@ -118,19 +119,26 @@ def plot_function_and_point(func, point, closet_point, xlim=(-1.5, 1.5), ylim=(-
     # plt.show()
 
 
-def plot_nse(equations, x_array, points=None):
-    # make bigger plot
-    plt.figure(figsize=(10, 10))
+def plot_nse(equations, x_array, points=None, points_x=None, distances=None):
+    fig, axs = plt.subplots(1, 2, figsize=(15, 9))
     for eq in equations:
         y = eq(x_array)
-        plt.plot(x_array, y)
+        axs[0].plot(x_array, y)
     if points is not None:
         for point in points:
-            plt.scatter(point[0], point[1], color='red')
+            axs[0].scatter(point[0], point[1], color='red')
+    if points_x is not None:
+        for x_value in points_x:
+            axs[0].axvline(x=x_value, color='red')
 
-    plt.xlim(-3.0, 3.0)
-    plt.ylim(-3.0, 3.0)
-    plt.grid()
+    if distances is not None:
+        axs[1].plot(distances, marker='o')
+
+    axs[0].grid()
+    axs[1].set_title("Best Residuen")
+
+    axs[0].set_ylim(-3.0, 3.0)
+    axs[0].set_xlim(-3.0, 3.0)
     plt.show()
 
 
@@ -167,31 +175,43 @@ class SaveActionsCallback(BaseCallback):
 class CustomEnv(gym.Env):
     def __init__(self, nse, plot=False, discrete=False):
         super(CustomEnv, self).__init__()
-        self.x_min = -300.0
-        self.x_max = -0.5
+        self.x_min = -10.0
+        self.x_max = 10.0
         self.y_min = -5.0
         self.y_max = 5.0
-        #self.action_space = gym.spaces.Box(low=np.array([self.x_min, self.y_min]),
-         #                                  high=np.array([self.x_max, self.y_max]),
-          #                                 dtype=np.float32)
-        self.action_space = gym.spaces.Box(low=self.x_min, high=self.x_max) # action is just x value
+        # self.action_space = gym.spaces.Box(low=np.array([self.x_min, self.y_min]),
+        #                                   high=np.array([self.x_max, self.y_max]),
+        #                                   dtype=np.float32)
+        self.action_space = gym.spaces.Box(low=self.x_min, high=self.x_max)  # action is just x value
 
         self.observation_space = gym.spaces.Box(low=-np.infty, high=np.infty, shape=(2,))
         self.state = np.array(
             [random.uniform(self.x_min, self.x_max),
              random.uniform(self.y_min, self.y_max)])  # self.state = point in space
         self.nse = nse
-        res = discrete_nse(self.x_min, self.x_max)
-        self.best_action = []
+        self.best_actions = []
         self.last_obs = None
         self.actions = []
         self.distances = []
         self.best_distances = []
         self.good_points = []
+        self.good_points_plot = []
+        self.good_res_plot = []
         self.best_action_so_far = None
+        self.good_points_thrs = 0.1
+        self.rewards = []
+        self.reward_action_map = []
 
-        if plot:
-            plot_nse(self.nse, self.x_array)
+        self.consecutive_no_improvement = 0
+
+        self.min_residuum = float('inf')
+        self.max_residuum = float('-inf')
+
+    def calculate_derivative(self, action):
+        d_eq1 = lambda x: 5 * x ** 4 - 12 * x ** 3 + 3 * x ** 2 + x
+        d_eq2 = lambda x: 2 * np.cos(2 * x)
+
+        return np.array([d_eq1(action), d_eq2(action)])
 
     def get_distance(self, point):
         """
@@ -205,7 +225,31 @@ class CustomEnv(gym.Env):
         eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
         eq2 = lambda x: np.sin(2 * x)
 
-        res = (eq1(point) - eq2(point))**2
+        # Berechnung der Funktionswerte
+        value_eq1 = eq1(point)
+        value_eq2 = eq2(point)
+
+        # Logarithmische Skalierung der Funktionswerte
+        log_base = 10  # Basis des Logarithmus (anpassbar)
+        scaled_eq1 = np.log(abs(value_eq1) + 1) / np.log(log_base)
+        scaled_eq2 = np.log(abs(value_eq2) + 1) / np.log(log_base)
+
+        # Vorzeichenkorrektur für negative Werte
+        if value_eq1 < 0:
+            scaled_eq1 = -scaled_eq1
+        if value_eq2 < 0:
+            scaled_eq2 = -scaled_eq2
+
+        res = (scaled_eq1 - scaled_eq2) ** 2
+
+        # Min-Max-Skalierung der Ergebnisse von eq1 und eq2
+        # min_val = -50.0
+        # max_val = 50.0
+        # scaled_eq1 = (eq1(point) - min_val) / (max_val - min_val)
+        # scaled_eq2 = (eq2(point) - min_val) / (max_val - min_val)
+        #
+        # res = (scaled_eq1 - scaled_eq2) ** 2
+
         return res
 
     def step(self, action):
@@ -220,60 +264,118 @@ class CustomEnv(gym.Env):
         if discrete:
             self.distances.append(self.get_distance_discrete(action))
 
-        good_points_threshold = 1e-4
         # just print better action
         if self.distances[-1] <= min(self.distances):
             print("Best action:", self.actions[-1])
             print("Residuum:", self.distances[-1])
             print()
-            self.best_action.append(action)
+            self.best_actions.append(action)
             self.best_distances.append(self.distances[-1])
 
-        if self.distances[-1] <= good_points_threshold and len(self.good_points) > 0:
+        if self.distances[-1] <= self.good_points_thrs and len(self.good_points) > 0:
             print(f"Good point: {self.good_points[-1]}\tResiduum: {self.distances[-1]}")
+            self.good_res_plot.append(self.distances[-1])
+
+        # add points that are better than a given threshold just for plotting
+        if self.distances[-1] <= 1e-4:
+            self.good_points_plot.append(action)
 
         if discrete:
             self.state = action
+
             residuum = self.get_distance_discrete(action)
 
-            if residuum <= good_points_threshold:
+            self.min_residuum = min(self.min_residuum, residuum)
+            self.max_residuum = max(self.max_residuum, residuum)
+
+            if self.max_residuum - self.min_residuum != 0:
+                normalized_residuum = (residuum - self.min_residuum) / (self.max_residuum - self.min_residuum)
+            else:
+                normalized_residuum = 0
+
+            reward = np.exp(-normalized_residuum * 1000)
+            # reward = 1 - normalized_residuum
+
+            if isinstance(reward, int) or isinstance(reward, float):
+                self.rewards.append(reward)
+                self.reward_action_map.append((action, reward))
+            else:
+                self.rewards.append(reward[0])
+                self.reward_action_map.append((action, reward[0]))
+
+            if residuum > self.good_points_thrs:
+                reward -= 0.5
+
+            # print(f"Reward: {reward}")
+
+            if residuum <= self.good_points_thrs:
                 self.good_points.append(action)
 
-            reward = np.exp(-residuum)
-            if residuum > 0.1:
-                reward -= residuum
-            if residuum <= good_points_threshold:
-                reward += 100
-            if len(self.best_distances) > 0 and residuum < min(self.best_distances):
-                reward += 50
+            # Reward if action is better than last action
+            if len(self.distances) > 1 and residuum < self.distances[-2]:
+                reward += 0.10
                 self.best_action_so_far = action
+
+            # penalty if action is worse than last action
+            if len(self.best_actions) > 1 and residuum > self.best_distances[-2]:
+                reward -= 0.5
+
             done = False
             truncated = False
-            if residuum <= good_points_threshold:  # if distance is less than reset
+            reward = np.clip(reward, 0, 1)
+
+            epsilon = 1e-8
+            max_residuum = 100.0  # Determine the maximum possible residuum value based on your problem
+
+            max_reward = 1 / epsilon
+            min_reward = 1 / (max_residuum + epsilon)
+
+            if residuum <= self.good_points_thrs:  # if distance is less than reset
+                # done = True
+                # reward = 1 + (self.good_points_thrs - residuum) / self.good_points_thrs
+                #
+                # if len(self.best_distances) > 1:
+                #     improvement_rate = (self.best_distances[-2] - self.best_distances[-1]) / self.best_distances[-2]
+                #     if improvement_rate > 0.1:
+                #         self.good_points_thrs *= 0.8  # Aggressive decrease for significant improvement
+                #     else:
+                #         self.good_points_thrs *= 0.95  # Gradual decrease for slow improvement
+                # else:
+                #     self.good_points_thrs *= 0.9
+
+            #     done = True
+            #     reward = 1 + (self.good_points_thrs - residuum) / self.good_points_thrs
+            #     self.good_points_thrs *= max(0.9, self.good_points_thrs * 0.99)
+            #     self.consecutive_no_improvement = 0
+            # else:
+            #     self.consecutive_no_improvement += 1
+            #
+            #     if self.consecutive_no_improvement >= 100:
+            #         done = True
+            #         reward = 0
+
+                # reward = 1 / (residuum + epsilon)
+                # reward = (reward - min_reward) / (max_reward - min_reward)
+                # self.good_points_thrs *= max(0.9, self.good_points_thrs * 0.99)
+
                 done = True
-                reward += 100
+                reward = -np.log(residuum + epsilon)
+                reward = (reward - min_reward) / (max_reward - min_reward)
+                self.good_points_thrs *= max(0.9, self.good_points_thrs * 0.99)
+            else:
+                reward = -np.log(residuum + epsilon)
+                reward = (reward - min_reward) / (max_reward - min_reward)
+
+            # else:
+            #     reward = 1 / (residuum + epsilon)
+            #     reward = (reward - min_reward) / (max_reward - min_reward)
+
             # self.best_action.append(action)
             self.last_obs = self.state
 
-            return self.state, reward, done, truncated, {}
-        else:
-            # reward negative distance
-            self.state = action
-            distances = self.get_distance(action)
+            reward = np.clip(reward, 0, 1)
 
-            if np.sum(distances) <= good_points_threshold:
-                self.good_points.append(action)
 
-            reward = np.sum(-distances)
-            done = False
-            truncated = False
-            if np.sum(distances) <= 1.0:  # if distance is less than reset
-                done = True
-
-            # self.best_action.append(action)
-            self.last_obs = self.state
-
-            # print(self.best_action[-1])
 
             return self.state, reward, done, truncated, {}
 
@@ -285,11 +387,12 @@ class CustomEnv(gym.Env):
         """
         discrete = True
 
-        self.state = np.array([random.uniform(self.x_min, self.y_min), random.uniform(self.x_max, self.y_max)],
-                              dtype=np.float32)  # Update to have two points
+        # print("Reset")
 
-        #if self.best_action_so_far is not None:
-        #    self.action_space = gym.spaces.Box(low=self.best_action_so_far - 10.0, high=self.best_action_so_far + 10.0)
+        self.state = np.array(random.uniform(self.x_min, self.x_max))
+
+        # if len(self.good_points) > 0:
+        #    self.action_space = gym.spaces.Box(low=min(self.good_points), high=max(self.good_points))
 
         # self.best_action = []
         self.last_obs = self.state
@@ -314,12 +417,13 @@ if __name__ == '__main__':
 
     # action noise
     n_actions = env.action_space.shape[-1]
-    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-    model = TD3("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
-                  buffer_size=1000)
-    logger.info("Model created")
-    # model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,)
+    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.8 * np.ones(n_actions))
+    # model = DDPG("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
+    #             buffer_size=1000)
+
+    model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise, learning_starts=1000)
     # model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.15)
+    logger.info("Model created")
 
     # train model
     log = False
@@ -332,16 +436,18 @@ if __name__ == '__main__':
         actions = []
         callback = SaveActionsCallback(1, actions)
         logger.info("Start training")
-        model.learn(total_timesteps=int(6e3), progress_bar=True)
+        model.learn(total_timesteps=int(8e3), progress_bar=True)
 
-    actions, distances = env.best_action, env.distances
-    good_points = env.good_points
+    _, distances = env.best_actions, env.distances
+    good_points, good_points_plot = env.good_points, env.good_points_plot
+    good_res_plot = env.good_res_plot
+    rewards = env.rewards
 
     print(good_points)
     print(f"Number of good points: {len(good_points)}")
     # print(f"Good points: {good_points}")
 
-    print(f"Residuum Average: {np.mean(good_points)}")
+    print(f"Residuum Average: {np.mean(distances)}")
 
     x_min = -3.0
     x_max = 3.0
@@ -350,8 +456,25 @@ if __name__ == '__main__':
     nse_system = nse()
     eqs = [lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2, lambda x: np.sin(2 * x)]
     good_points_y_values = [eqs[0](point) for point in good_points]
-    good_points_xy =[(point, eqs[0](point)) for point in good_points]
-    plot_nse(eqs, np.linspace(x_min, x_max, 100000), points=good_points_xy)
+    good_points_xy = [(point, eqs[0](point)) for point in good_points]
+
+    # plot best residuen
+    best_distances = env.best_distances
+
+    plot_nse(eqs, np.linspace(x_min, x_max, 100000), points=None, points_x=good_points_plot, distances=good_res_plot)
+
+    # plot reward action mapping
+    actions = [action for action, reward in env.reward_action_map]
+    rewards = [reward for action, reward in env.reward_action_map]
+    plt.scatter(actions, rewards, s=1.2, label="reward = exp(-residuum * 1000)")
+    real_solutions = [-0.69983978673645688906, 0.0, 2.4936955491125650267]
+    for real_sol in real_solutions:
+        plt.axvline(x=real_sol, color='red', label='Real Solution')
+    plt.xlabel("Action")
+    plt.ylabel("Reward")
+    plt.xlim(env.x_min, env.x_max)
+    plt.legend()
+    plt.show()
 
     # save model
     model.save("ddpg_nse")
