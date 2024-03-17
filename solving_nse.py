@@ -198,7 +198,7 @@ class CustomEnv(gym.Env):
         self.good_points_plot = []
         self.good_res_plot = []
         self.best_action_so_far = None
-        self.good_points_thrs = 0.1
+        self.good_points_thrs = 0.9
         self.rewards = []
         self.reward_action_map = []
 
@@ -242,6 +242,8 @@ class CustomEnv(gym.Env):
 
         res = (scaled_eq1 - scaled_eq2) ** 2
 
+        res_old = (eq1(point) - eq2(point)) ** 2
+
         # Min-Max-Skalierung der Ergebnisse von eq1 und eq2
         # min_val = -50.0
         # max_val = 50.0
@@ -250,7 +252,63 @@ class CustomEnv(gym.Env):
         #
         # res = (scaled_eq1 - scaled_eq2) ** 2
 
-        return res
+        return np.tanh(res_old)
+
+    def _plot_res(self):
+        eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
+        eq2 = lambda x: np.sin(2 * x)
+
+        x = np.linspace(-1, 2.74, 1000)
+
+        # Berechnung der Funktionswerte
+        value_eq1 = eq1(x)
+        value_eq2 = eq2(x)
+
+        log_bases = [5, 10]
+
+        for log_base in log_bases:
+            # Logarithmische Skalierung der Funktionswerte
+            scaled_eq1 = np.log(abs(value_eq1) + 1) / np.log(log_base)
+            scaled_eq2 = np.log(abs(value_eq2) + 1) / np.log(log_base)
+
+            # Vorzeichenkorrektur für negative Werte
+            scaled_eq1[value_eq1 < 0] = -scaled_eq1[value_eq1 < 0]
+            scaled_eq2[value_eq2 < 0] = -scaled_eq2[value_eq2 < 0]
+
+            res = (scaled_eq1 - scaled_eq2) ** 2
+
+            res_old = (eq1(x) - eq2(x)) ** 2
+
+            # plot res and res old
+            plt.plot(x, res, label=f"res log base {log_base}")
+
+        plt.grid()
+        #plt.plot(x, res_old, label="res normal")
+        plt.plot(x, np.tanh(res_old), label="tanh(res normal)")
+        plt.plot(x, np.clip(res_old, 0, 1), label="clip(res normal)")
+        plt.legend()
+
+        plt.show()
+
+        # Logarithmische Skalierung der Funktionswerte
+        # log_base = 5  # Basis des Logarithmus (anpassbar)
+        # scaled_eq1 = np.log(abs(value_eq1) + 1) / np.log(log_base)
+        # scaled_eq2 = np.log(abs(value_eq2) + 1) / np.log(log_base)
+        #
+        # # Vorzeichenkorrektur für negative Werte
+        # scaled_eq1[value_eq1 < 0] = -scaled_eq1[value_eq1 < 0]
+        # scaled_eq2[value_eq2 < 0] = -scaled_eq2[value_eq2 < 0]
+        #
+        # res = (scaled_eq1 - scaled_eq2) ** 2
+        #
+        # res_old = (eq1(x) - eq2(x)) ** 2
+
+        # plot res and res old
+        # plt.plot(x, res, label="res log")
+        # plt.plot(x, res_old, label="res normal")
+        # plt.legend()
+        # plt.grid()
+        # plt.show()
 
     def step(self, action):
         """
@@ -277,7 +335,7 @@ class CustomEnv(gym.Env):
             self.good_res_plot.append(self.distances[-1])
 
         # add points that are better than a given threshold just for plotting
-        if self.distances[-1] <= 1e-4:
+        if self.distances[-1] <= 1e-5:
             self.good_points_plot.append(action)
 
         if discrete:
@@ -293,8 +351,8 @@ class CustomEnv(gym.Env):
             else:
                 normalized_residuum = 0
 
-            reward = np.exp(-normalized_residuum * 1000)
-            # reward = 1 - normalized_residuum
+            # reward = np.exp(-normalized_residuum * 100)
+            reward = 1 - residuum
 
             if isinstance(reward, int) or isinstance(reward, float):
                 self.rewards.append(reward)
@@ -359,8 +417,8 @@ class CustomEnv(gym.Env):
                 # self.good_points_thrs *= max(0.9, self.good_points_thrs * 0.99)
 
                 done = True
-                reward = -np.log(residuum + epsilon)
-                reward = (reward - min_reward) / (max_reward - min_reward)
+                #reward = -np.log(residuum + epsilon)
+                #reward = (reward - min_reward) / (max_reward - min_reward)
                 self.good_points_thrs *= max(0.9, self.good_points_thrs * 0.99)
             else:
                 reward = -np.log(residuum + epsilon)
@@ -409,6 +467,8 @@ if __name__ == '__main__':
     env = CustomEnv(nse(), plot=False, discrete=True)
     logger.info("Environment created")
 
+    env._plot_res()
+
     # check environment
     # check_env(env)
 
@@ -436,7 +496,7 @@ if __name__ == '__main__':
         actions = []
         callback = SaveActionsCallback(1, actions)
         logger.info("Start training")
-        model.learn(total_timesteps=int(8e3), progress_bar=True)
+        model.learn(total_timesteps=int(3e3), progress_bar=True)
 
     _, distances = env.best_actions, env.distances
     good_points, good_points_plot = env.good_points, env.good_points_plot
