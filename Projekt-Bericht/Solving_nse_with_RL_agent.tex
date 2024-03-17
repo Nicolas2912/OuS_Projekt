@@ -1,0 +1,203 @@
+\documentclass{article}
+
+% --- packages ---
+
+\usepackage[utf8]{inputenc}
+\usepackage[english, ngerman]{babel}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{tikz, pgfplots}
+\usepackage{amssymb}
+\usepackage{graphicx}
+%\usepackage{subcaption}
+\usepackage{pgf}
+\usepackage{caption}
+\usepackage{listings, lstautogobble}
+\usepackage{delarray}
+\usepackage{bigints}
+\usepackage{float}
+\usepackage{layouts}
+\usepackage{subfigure}
+\usepackage{url}
+\usepackage{fancyhdr}
+\usepackage{MnSymbol}
+\usepackage{wasysym}
+\usepackage[a]{esvect} %für bessere Vektorpfeile
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{acronym}
+\usepackage{ifsym}
+\usepackage[sorting=nty]{biblatex}
+\usepackage[nottoc,numbib]{tocbibind}
+
+% --- Input macros von Ide ---
+
+%\input{macros}
+
+% --- Seitenränder / Einrücktiefe ---
+
+\geometry{left=2.5cm, right=2.5cm, top=2cm, bottom=2cm}
+\parindent0cm
+
+% --- new commands ---
+
+\newcommand{\RM}[1]{\MakeUppercase{\romannumeral #1{}}} %für römische Zahlen #1{}}} %für römische Zahlen
+\newcommand{\xvec}{\underline{x}}
+\newcommand{\bvec}{\underline{b}}
+\newcommand{\uvec}{\underline{u}}
+\newcommand{\vvec}{\underline{v}}
+\newcommand{\wvec}{\underline{w}}
+\newcommand{\pvec}{\underline{p}}
+\newcommand{\zvec}{\underline{z}}
+\newcommand{\xstern}{\underline{x}^*}
+\newcommand{\Rmn}{\mathbb{R}^{m \times n}}
+\newcommand{\Elasticsearch}{\textit{Elasticsearch}\;}
+\newcommand{\Rnn}{\mathbb{R}^{n \times n}}
+\newcommand{\rang}{\text{rang}}
+\def\code#1{\texttt{#1}}
+\newcommand{\dom}{\textrm{dom}}
+\newcommand{\lojoin}{{\tiny \textifsym{d|><|}}}
+\newcommand{\rojoin}{{\tiny \textifsym{|><|d}}}
+\newcommand{\fojoin}{{\tiny \textifsym{d|><|d}}}
+\newcommand{\m}{\cdot} %Malzeichen einfacher
+\newcommand{\entspricht}{$\mathop{\hat{=}}$} %Entspricht-Zeichen
+\renewcommand{\labelnamepunct}{\addcolon\space}
+
+% -- Definitionen für Theoremumgebungen ---
+
+\newtheoremstyle{newline}% name
+{}% Space above
+{\baselineskip}% Space below
+{\normalfont}% Body font
+{}% Indent amount
+{\bfseries}% Theorem head font
+{:}% Punctuation after theorem head
+{\newline}% Space after theorem head
+{\thmname{#1}\thmnumber{ #2}\thmnote{ (#3)}}% Theorem head spec (can be left empty, meaning ‘normal’ )
+
+\theoremstyle{newline}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{satz}[definition]{Satz}
+\newtheorem{bemerkung}[definition]{Bemerkung}
+\newtheorem{folgerung}[definition]{Folgerung}
+\renewenvironment{proof}[1][\proofname:]{%
+\minisec{#1}
+\pushQED{\qed}%
+\itshape
+}{%
+\popQED
+\par
+\medskip
+}
+
+% --- listing_settings ---
+
+
+\definecolor{red}{rgb}{0.6,0,0} % for strings
+\definecolor{blue}{rgb}{0,0,0.6}
+\definecolor{green}{rgb}{0,0.8,0}
+\definecolor{cyan}{rgb}{0.0,0.6,0.6}
+
+\lstset{autogobble=true}
+
+% --- Literaturverzeichnis ---
+
+
+% --- Beginn des eigentlichen Dokuments ---
+
+
+\begin{document}
+
+% -- Layout Kopfzeile ---
+
+\pagestyle{fancy}
+\lhead{\small{\slshape}}
+\chead{}	
+\rhead{\mdseries \leftmark}
+
+
+\begin{titlepage}
+
+%\includegraphics[width=0.20\textwidth]{Bilder/fh_logo.png}\hfill\includegraphics[width=0.25\textwidth]{Bilder/diamant-software-logo-teams.png}
+
+% --- include correct images here
+
+\centering
+
+{\bfseries HSBI Bielefeld \par}
+\vspace{0.25cm}
+{\bfseries University of Applied Sciences \par}
+\vspace{0.25cm}
+{\bfseries Fachbereich Ingenieurwissenschaften und Mathematik \par}
+\vspace{0.25cm}
+{\bfseries Studiengang Optimierung und Simulation \par}
+\vspace{1.5cm}
+{\huge\bfseries Lösen von nichtlinearen Gleichungssystemen mit einem Reinforcement-Learning-Agent \par}
+\vspace{2.5cm}
+{\Large\bfseries Bericht \par}
+{\vspace{8.5cm}}
+
+\flushleft
+\begin{tabular}{ll}
+	Vorgelegt von: & Nicolas Schneider \vspace{0.25cm}\\
+	Matrikelnummer: & 1208960 \vspace{0.25cm} \\
+	Studiengang: & Optimierung und Simulation \vspace{0.5cm} \\
+	Abgabedatum: & 07.04.2024 \vspace{0.5cm} \\
+	Betreuer: & Prof. Dr. rer. nat. Bernhard Bachmann
+\end{tabular}
+\vfill
+\end{titlepage}
+
+
+\thispagestyle{empty}
+\newpage
+
+
+
+\begin{onehalfspace}
+
+\thispagestyle{empty}
+\selectlanguage{english}
+\begin{abstract}
+	In Folge des digitalen Informationszeitalters, in dem die Anzahl der verfügbaren Informationen exponentiell gestiegen ist, kam der Begriff \textit{Big Data} immer öfters auf. Im Zuge der immer komplexer und größere werdenden Daten, wuchs auch die Popularität der \textit{NoSQL}-Datenbanken, die im Vergleich zu relationalen Datenbanken besonders gut mit großen Datenmengen umgehen können.
+	\\
+	
+	Diese Arbeit beschäftigt sich mit dem Vergleich einer relationalen Datenbank und einer NoSQL-Datenbank, im speziellen die dokumentenorientierte Datenbank \textit{Elasticsearch}, im Bezug auf die Performance, was Suche und Indexierung angeht. Unterdessen wird neben dem funktionalen Aufbau auch die Anwendbarkeit der jeweiligen Datenbank auf die Auswertung von verschiedenen Log-Dateien, wie IIS- und Eventlogs im Unternehmen der Diamant Software GmbH eingegangen. 
+\end{abstract}
+\selectlanguage{ngerman}
+\newpage
+
+
+\tableofcontents	% Inhaltsverzeichnis		
+\thispagestyle{empty}
+
+\newpage		
+
+\section{Einführung}
+
+\section{Grundlagen nichtlinearer Gleichungssysteme}
+
+\section{Grundlagen Reinforcement Learning}
+
+\section{Anwendung eines RL-Agents auf nichtlineare Gleichungssysteme}
+
+\section{Umsetzung}
+
+\section{Ergebnisse}
+
+\section{Fazit}
+
+
+
+\end{onehalfspace}
+
+\end{document}
+
+
+
+
+
+
+
+
