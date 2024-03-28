@@ -113,10 +113,10 @@ def plot_nse(equations, x_array, dimension=1, contour_plot=False, points=None, p
         raise ValueError(f"Plotting for dimension {dimension} is not supported.")
 
 
-def rosenbrock_gradient(x, y):
-    dx = -2 * (1 - x) - 400 * x * (y - x ** 2)
-    dy = 200 * (y - x ** 2)
-    return np.array([dx, dy])
+def rosenbrock_gradient(x):
+    df_dx = -40 * x[0] * (x[1] - x[0] ** 2) - 2 * (1 - x[0])
+    df_dy = 20 * (x[1] - x[0] ** 2)
+    return np.array([df_dx, df_dy])
 
 
 class SaveActionsCallback(BaseCallback):
@@ -145,7 +145,7 @@ class CustomEnv(gym.Env):
         self.high_bounds = 5.0 * np.ones(dimension)
         self.action_space = gym.spaces.Box(low=self.low_bounds,
                                            high=self.high_bounds,
-                                           dtype=np.float32)
+                                           dtype=np.float64)
 
         self.observation_space = gym.spaces.Box(low=-np.infty, high=np.infty, shape=(2,))
         self.state = np.array(
@@ -163,6 +163,8 @@ class CustomEnv(gym.Env):
         self.good_points_thrs = 0.1
         self.rewards = []
         self.reward_action_map = []
+
+        self.all_residuals = list()
 
         self.consecutive_no_improvement = 0
         self.total_steps = 0
@@ -209,44 +211,48 @@ class CustomEnv(gym.Env):
         :param nse:
         :return:
         """
-        use_log_residuum = True
+        scaling = "minmax"
 
         equations = self.nse()
 
-        # Initialize an empty list to store the values of each equation
-        values = []
+        # Calculate the function values for all equations
+        values = np.array([eq(point) for eq in equations])
 
-        # Iterate over each equation in the nse
-        for eq in equations:
-            # Calculate the function values
-            value = eq(point)
-            values.append(value)
+        # calculate normal residuum
+        res = sum((values[i] - values[j]) ** 2 for i in range(len(values)) for j in range(i + 1, len(values)))
 
-        if use_log_residuum:
-            # Logarithmic residuum
-            log_base = 10  # Basis of the logarithm (adjustable)
+        self.all_residuals.append(res)
 
-            # Initialize an empty list to store the scaled values of each equation
-            scaled_values = []
+        if scaling == "minmax":
+            if len(self.all_residuals) > 1:
+                min_values = np.min(self.all_residuals, axis=0)
+                max_values = np.max(self.all_residuals, axis=0)
+                scaled_values = (values - min_values) / (max_values - min_values)
+                res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
+                          range(i + 1, len(scaled_values)))
+                return res
+            else:
+                return res
 
-            for value in values:
-                if isinstance(value, np.ndarray):
-                    scaled_value = np.log(np.abs(value) + 1) / np.log(log_base)
-                    scaled_value[value < 0] = -scaled_value[value < 0]
-                else:
-                    scaled_value = np.log(abs(value) + 1) / np.log(log_base)
-                    if value < 0:
-                        scaled_value = -scaled_value
-
-                scaled_values.append(scaled_value)
-
+        elif scaling == "logarithmic":
+            scaled_values = np.log1p(np.abs(values)) / np.log(10)
             res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
                       range(i + 1, len(scaled_values)))
-        else:
-            # Normal residuum
-            res = sum((values[i] - values[j]) ** 2 for i in range(len(values)) for j in range(i + 1, len(values)))
+            return res
 
-        return res
+        elif scaling == "zscore":
+            if len(self.all_residuals) > 1:
+                mean_values = np.mean(self.all_residuals, axis=0)
+                std_values = np.std(self.all_residuals, axis=0)
+                scaled_values = (values - mean_values) / std_values
+                res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
+                          range(i + 1, len(scaled_values)))
+                return res
+            else:
+                return res
+
+        elif scaling == "normal":
+            return res
 
     def _plot_res(self, dimension, plot_contour=False):
         num_points = 1000
@@ -385,8 +391,8 @@ class CustomEnv(gym.Env):
         normalization_term = -beta * normalized_residuum
 
         if state is not None:
-            x, y = state
-            gradient = rosenbrock_gradient(x, y)
+            x = state
+            gradient = rosenbrock_gradient(x)
             gradient_term = -gamma * np.linalg.norm(gradient)
         else:
             gradient_term = 0
@@ -398,7 +404,7 @@ class CustomEnv(gym.Env):
     def step(self, action):
         """
         Execute one time step within the environment.
-        :param action: Action to take. (Tuple containing the coordinates of the point)
+        :param action: Action to take.
         :return: state, reward, done, info
         """
 
@@ -420,7 +426,7 @@ class CustomEnv(gym.Env):
             self.good_res_plot.append(self.distances[-1])
 
         # add points that are better than a given threshold just for plotting
-        if self.distances[-1] <= 1e-5:
+        if self.distances[-1] <= 1e-12:
             self.good_points_plot.append(action)
 
         if discrete:
@@ -432,21 +438,27 @@ class CustomEnv(gym.Env):
             self.min_residuum = min(self.min_residuum, residuum)
             self.max_residuum = max(self.max_residuum, residuum)
 
-            # normalie residuum
-            if self.max_residuum - self.min_residuum != 0:
-                normalized_residuum = (residuum - self.min_residuum) / (self.max_residuum - self.min_residuum)
-            else:
-                normalized_residuum = 0
-
-            residuum = normalized_residuum
+            # normalize residuum
+            # if self.max_residuum - self.min_residuum != 0:
+            #     normalized_residuum = (residuum - self.min_residuum) / (self.max_residuum - self.min_residuum)
+            # else:
+            #     normalized_residuum = 0
+            #
+            # residuum = normalized_residuum
 
             # print(f"Normalized Residuum: {normalized_residuum}")
 
             # reward = np.exp(-normalized_residuum * 1000)
             # reward = 1 - residuum
             # reward = np.log(1 / (normalized_residuum + 1e-8))
-            reward = self.adaptive_reward(normalized_residuum, self.min_residuum, self.max_residuum, reward_type='logarithmic',
-                                          alpha_init=1.0, beta_init=1.0, gamma=0.1, state=self.state)
+
+            # reward = self.adaptive_reward(normalized_residuum, self.min_residuum, self.max_residuum,
+            #                               reward_type='logarithmic',
+            #                               alpha_init=0.99, beta_init=0.99, gamma=0.1, state=self.state)
+
+            # reward = self.logarithmic_reward(residuum, self.min_residuum, self.max_residuum, alpha=1.0, beta=1.0)
+
+            reward = -residuum
 
             if isinstance(reward, int) or isinstance(reward, float):
                 self.rewards.append(reward)
@@ -491,7 +503,7 @@ class CustomEnv(gym.Env):
                 self.improvement_rate_history.append(improvement_rate)
 
             if residuum <= self.good_points_thrs:  # if distance is less than reset
-                print("Reset")
+                # print("Reset")
                 done = True
                 reward = 1 + (self.good_points_thrs - residuum) / self.good_points_thrs
 
@@ -559,7 +571,7 @@ class CustomEnv(gym.Env):
             #     reward = (reward - min_reward) / (max_reward - min_reward)
 
             # self.best_action.append(action)
-            self.last_obs = self.state
+            # self.last_obs = self.state
 
             # reward = np.clip(reward, 0, 1)
 
@@ -571,17 +583,9 @@ class CustomEnv(gym.Env):
         :param seed: Seed must be set
         :return: state, {}
         """
-        discrete = True
 
-        # print("Reset")
-
-        self.state = np.array(random.uniform(self.x_min, self.x_max))
-
-        # if len(self.good_points) > 0:
-        #    self.action_space = gym.spaces.Box(low=min(self.good_points), high=max(self.good_points))
-
-        # self.best_action = []
-        self.last_obs = self.state
+        # update based on dimension
+        self.state = np.random.uniform(low=self.x_min, high=self.x_max, size=self.dimension)
 
         return self.state, {}
 
@@ -608,13 +612,13 @@ if __name__ == '__main__':
 
     # action noise
     n_actions = env.action_space.shape[-1]
-    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.8 * np.ones(n_actions))
+    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.75 * np.ones(n_actions))
     # model = DDPG("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
     #             buffer_size=1000)
 
     # model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
     #             learning_starts=1000)
-    model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.2)
+    model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.15)
     logger.info("Model created")
 
     # train model
@@ -629,8 +633,9 @@ if __name__ == '__main__':
         callback = SaveActionsCallback(1, actions)
         logger.info("Start training")
         start_training_time = time.time()
-        model.learn(total_timesteps=int(11e4), progress_bar=False)
-        print(f"Training time: {round(time.time() - start_training_time, 3)}s")
+        model.learn(total_timesteps=int(4e4), progress_bar=False)
+        print("---"*100)
+        print(f"\nTraining time: {round(time.time() - start_training_time, 3)}s")
 
     _, distances = env.best_actions, env.distances
     good_points, good_points_plot = env.good_points, env.good_points_plot
@@ -639,7 +644,7 @@ if __name__ == '__main__':
     rewards = env.rewards
 
     # calculate best point away from global minimum
-    global_optimum = (1,1)
+    global_optimum = (1, 1)
     point_distance_map = dict()
     for point in good_points:
         distance = np.linalg.norm(np.array(point) - np.array(global_optimum))
@@ -649,7 +654,7 @@ if __name__ == '__main__':
 
     best_point = min(point_distance_map, key=point_distance_map.get)
 
-    print(f"Best point away from global minimum: {best_point}")
+    print(f"Best point away from global minimum: {best_point}\tDistance: {point_distance_map[best_point]}")
 
     # plot time_residuum and time_action in subplots
     time_residuum_map = env.time_residuum
@@ -677,7 +682,6 @@ if __name__ == '__main__':
 
     plt.show()
 
-    print(good_points)
     print(f"Number of good points: {len(good_points)}")
     # print(f"Good points: {good_points}")
 
