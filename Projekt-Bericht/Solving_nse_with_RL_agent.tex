@@ -6,6 +6,7 @@
 \usepackage[english, ngerman]{babel}
 \usepackage{amsmath}
 \usepackage{amsthm}
+\usepackage[noline]{algorithm2e}
 \usepackage{tikz, pgfplots}
 \usepackage{amssymb}
 \usepackage{graphicx}
@@ -81,6 +82,7 @@
 \newtheorem{satz}[definition]{Satz}
 \newtheorem{bemerkung}[definition]{Bemerkung}
 \newtheorem{folgerung}[definition]{Folgerung}
+
 \renewenvironment{proof}[1][\proofname:]{%
 \minisec{#1}
 \pushQED{\qed}%
@@ -185,8 +187,8 @@
 
 Ein nichtlineares Gleichungssystem kann als Nullstellenproblem wie folgt formuliert werden:
 
-\begin{definition}
-	Es sei $B \subset \mathbb{R}^n$ und $\mathbf{g}: B \rightarrow \mathbb{R}$. Gesucht sind Lösungen von
+\begin{definition}[Nichtlineares Gleichungssystem]
+	Es sei $B \subset \mathbb{R}^n$ und $\mathbf{g}: B \rightarrow \mathbb{R}^n$. Gesucht sind Lösungen von
 	
 	\begin{center}
 		$\mathbf{f}(\mathbf{x}) = \mathbf{0}.$
@@ -207,6 +209,7 @@ Ein nichtlineares Gleichungssystem kann als Nullstellenproblem wie folgt formuli
 	\end{center}
 	
 \end{definition}
+\bigskip
 
 Nichtlineare Gleichungssysteme treten in vielen Bereichen der Wissenschaft und Technik auf, wie beispielsweise in der Physik, Chemie, Biologie, Wirtschaftswissenschaften und Ingenieurwissenschaften. Sie dienen zur Modellierung und Analyse komplexer Systeme, deren Verhalten durch nichtlineare Beziehungen zwischen den Variablen beschrieben wird.
 
@@ -306,21 +309,92 @@ PPO verwendet häufig auch eine Value Function $V_\phi(s)$, um den Wert eines Zu
 Insgesamt bietet PPO eine effektive und stabile Methode zum Lernen von Policies in Reinforcement Learning Problemen. Durch die Verwendung der Clipping-Technik und der vertrauenswürdigen Region werden große Policy-Updates vermieden und eine stabile Konvergenz erreicht. PPO hat sich in verschiedenen Benchmark-Problemen und realen Anwendungen bewährt und ist ein weit verbreiteter Algorithmus im Bereich des Reinforcement Learning.
 \\
 
-Neben dem Proximal-Policy-Algorithmus gibt es noch eine Vielzahl weiterer Algorithmen, die sich über die Zeit entwickelt haben, wie bspw. dem \textit{Deep Deterministic Policy Gradient} (DDPG)-, \textit{Twin Delayed DDPG} (TD3)-, oder dem \textit{Soft Actor Critic}-Algorithmus.
+Neben dem Proximal-Policy-Algorithmus gibt es noch eine Vielzahl weiterer Algorithmen, die sich über die Zeit entwickelt haben, wie bspw. dem \textit{Deep Deterministic Policy Gradient} (DDPG)-, \textit{Twin Delayed DDPG} (TD3)-, oder dem \textit{Soft Actor Critic}-Algorithmus (SAC).
+\\
 
+Dieses Kapitel bietet lediglich einen grundlegenden Einblick in die Arbeitsweise des Reinforcement Learning. Es ist wichtig zu betonen, dass die konkrete Umsetzung eines Reinforcement-Learning-Agenten stark vom spezifischen Anwendungsfall und den zugrunde liegenden Daten und Informationen abhängt. Da Reinforcement Learning äußerst flexibel und anpassungsfähig ist, kann die Implementierung eines RL-Agenten in verschiedenen Szenarien und Kontexten erheblich variieren. 
 
 \section{Reinforcement Learning für die Lösung nichtlinearer Gleichungssysteme}
 
-Bevor ein RL-Agent nichtlineare Gleichungssysteme lösen kann, sollten zunächst einige wichtige Fragen beantwortet werden, die für die Qualität der Lösung von Relevanz sind:
+Bevor ein RL-Agent nichtlineare Gleichungssysteme lösen kann, sollten zunächst einige wichtige Fragen beantwortet werden, die für die Qualität der Lösung und die Lösungsfindung von Relevanz sind:
 
 \begin{enumerate}
 	\item \textbf{Umgebung:} Was ist die Umgebung, in dem der Agent agiert?
+	\item \textbf{Zustand:} Was sind zulässige und sinnvolle Zustände?
 	\item \textbf{Aktionen:} Was sind zulässige und sinnvolle Aktionen, die der Agent wählen kann?
 	\item \textbf{Belohnung:} Wie sieht eine zielführende Belohnungsfunktion aus?
 \end{enumerate}
 
+Diese Projektarbeit fokussiert sich auf einen Teil der potenziellen Antworten auf die genannten Fragen. Es sei jedoch angemerkt, dass es alternative Formulierungen geben könnte, die ebenfalls zu einer effektiven Lösung beitragen können.
+\\
+
+\underline{Umgebung:}
+\smallskip
+
+Im Kontext dieses Projekts wird die Umgebung als der Raum betrachtet, in dem sich die Gleichungen befinden. Die Besonderheit dabei ist, dass, sollten die Gleichungen sich im Verlauf der Lösungsfindung nicht ändern, die Umgebung statisch ist. 
+\\
+
+\underline{Zustand:}
+\smallskip
+
+Der Zustand wird aufgefasst, als die gewählte Aktion.
+\\
+
+\underline{Aktion:}
+\smallskip
+
+Abhängig von der Dimensionalität des Problems kann der Agent aus einem kontinuierlichen Raum von Punkten wählen. Der Agent wählt eine Aktion $a \in \mathcal{A}$, wobei $\mathcal{A} \subseteq \mathbb{R}^{n-1}$ und $n$ die Dimensionalität des Problems widerspiegelt.
+\\
+ 
+\underline{Belohnungsfunktion:}
+\smallskip
+
+Die Formulierung der Belohnungsfunktion konzentriert sich darauf, die Lösung(en) des Gleichungssystem(s) zu finden, sofern sie denn existieren. In dieser Arbeit wird das Residuum verwendet, welches den Fehler zur eigentlichen Lösung darstellt. Das Residuum $R$ an der Optimallösung $x^{\ast}$ ist $0$, sodass das Ziel dabei ist diesen Fehler zu minimieren. 
+
+\begin{definition}[Residuum]
+	Gegeben seien $n$ nichtlineare Gleichungen mit $\mathbb{R}^n \rightarrow \mathbb{R}^n$. Es sei vorausgesetzt, dass mindestens eine Lösung $\mathbf{x}^{\ast}$ existiert, die das Gleichungssystem löst. Dann ist das Residuum an der Stelle $\mathbf{x}$ mit $\mathbf{x} \in \mathbb{R}^n$ definiert als
+	
+	\begin{equation}
+		R(\mathbf{x}) = \sum\limits (f_i(\mathbf{x}) - f_j(\mathbf{x}))^2 \quad \forall 1 \leq i < j \leq n.
+	\end{equation}
+\end{definition}
+
+Da der Agent das Ziel verfolgt die Belohnung über die Zeit zu maximieren, kann das negative Residuum als Belohnung interpretiert werden. $Reward = -R(\mathbf{x})$.
+\\
+
+Dieses Kapitel stellt die verfolgten Ansätze dar, die bei der Umsetzung verfolgt wurden. Im folgenden Kapitel wird genauer auf die Umsetzung dieses Ansatzes eingegangen.
 
 \section{Umsetzung}
+
+Bevor mit der Implementierung der Problemstellung, der Umgebung und des Agents begonnen wird, ist es von entscheidender Bedeutung, die Auswahl der richtigen Programmiersprache und Bibliothek sorgfältig zu prüfen. Diese Entscheidung bildet das Fundament für das gesamte Projekt und kann einen erheblichen Einfluss auf die Effizienz, Skalierbarkeit und den Erfolg der Umsetzung haben.
+\medskip
+
+Für dieses Projekt wurde die Programmiersprache \textit{Python} als Programmiersprache gewählt, zusammen mit der Reinforcement-Learning-Bibliothek \textit{stable-baselines3}. Diese Entscheidung basiert darauf, dass \textit{stable-baselines3} eine breite Palette von wichtigen RL-Algorithmen implementiert und gleichzeitig eine benutzerfreundliche Integration mit \textit{Python} bietet. Die Kombination aus \textit{Python} und \textit{stable-baselines3} ermöglicht eine effiziente Entwicklung und Umsetzung von Reinforcement-Learning-Algorithmen für die gegebenen Anforderungen des Projekts.
+\\
+
+Für die Umsetzung des Agenten bzw. der Umgebung sind folgende Methoden für die Problemstellung relevant:
+
+\begin{itemize}
+	\item \textbf{\code{get\_distance(x)}}: Berechnet das Residuum für einen Vektor $\mathbf{x} \in \mathbb{R}^{n-1}$.
+	\item \textbf{\code{reward(residuum, *args)}}: Berechnet den Reward basierend auf dem Residuum und weiteren zusätzlichen Parametern.
+	\item \textbf{\code{step(action)}}: Führt einen Schritt während des Lernens in der Umgebung aus und aktualisiert dabei die Belohnung auf Grundlage verschiedener, vorher festgelegter Regeln.
+	\item \textbf{\code{reset()}}: Setzt die Umgebung auf einen zufälligen Zustand zurück.
+\end{itemize}
+
+In der Praxis hat es sich als vorteilhaft erwiesen, das Residuum mithilfe des Logarithmus' zu skalieren. Diese Skalierung erfolgt wie folgt:
+
+\RestyleAlgo{ruled}
+\SetKwComment{Comment}{/* }{ */}
+
+
+\begin{algorithm}
+	\caption{Logarithmische Skalierung -- Residuum}\label{alg:log-scale-res}
+	\KwIn{$\mathbf{x} \in \mathbb{R}^{n-1}$}\;
+	
+	
+	
+\end{algorithm}
+
 
 \section{Ergebnisse}
 
