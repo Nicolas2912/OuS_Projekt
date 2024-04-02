@@ -28,6 +28,8 @@
 \usepackage{setspace}
 \usepackage{geometry}
 \usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
 \usepackage{acronym}
 \usepackage{ifsym}
 \usepackage[sorting=nty]{biblatex}
@@ -116,6 +118,8 @@
 \definecolor{blue}{rgb}{0,0,0.6}
 \definecolor{green}{rgb}{0,0.8,0}
 \definecolor{cyan}{rgb}{0.0,0.6,0.6}
+\newcommand{\greencomment}[1]{\textcolor{green}{#1}}
+
 
 \lstset{autogobble=true}
 
@@ -469,6 +473,31 @@ Für manche Art von Problemen hat es sich als vorteilhaft erwiesen, das Residuum
 
 Die Ausführung eines Lernschritts ist entscheidend für die Lösungsfindung. Daher werden im nachfolgenden die wichtigsten Schritte beschrieben.
 
+Zuerst seien die wichtigsten Variablen in folgender Tabelle definiert.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Variablendefinitionen}
+	\begin{tabular}{>{\itshape}l p{0.6\linewidth}}
+		\toprule
+		\textnormal{Variable} & \textnormal{Beschreibung} \\
+		\midrule
+		\text{\code{distances}} & Eine Liste, die Entfernungen enthält. \\
+		\text{\code{best\_actions}} & Eine Liste, die die besten Aktionen enthält. \\
+		\text{\code{best\_distances}} & Eine Liste, die die besten erreichten Entfernungen enthält. \\
+		\text{\code{improvement\_rate\_history}} & Eine Liste, die Verbesserungsraten enthält. \\
+		\text{\code{good\_points\_threshold}} & Der Schwellenwert für einen "guten Punkt". \\
+		\text{\code{no\_improvement\_limit}} & Die Grenze für aufeinanderfolgende Iterationen ohne Verbesserung. \\
+		\text{\code{dynamic\_reward}} & Die dynamisch akkumulierte Belohnung. \\
+		\text{\code{dynamic\_penalty}} & Die dynamisch akkumulierte Strafe. \\
+		\text{\code{total\_reward}} & Die insgesamt akkumulierte Belohnung. \\
+		\text{\code{improvement\_rate}} & Die berechnete Verbesserungsrate. \\
+		\text{\code{done}} & Ein boolescher Wert, der den Abschluss anzeigt. \\
+		\text{\code{consecutive\_no\_improvement}} & Die Anzahl aufeinanderfolgender Iterationen ohne Verbesserung.\\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
 
 \begin{algorithm}
 	\caption{Ausschnitt zur Ausführung eines Schrittes}
@@ -479,53 +508,138 @@ Die Ausführung eines Lernschritts ist entscheidend für die Lösungsfindung. Da
 	\SetKwData{threshold}{threshold}
 	\SetKwData{distancesarray}{distances\_array}
 	\SetKwData{improvementrate}{improvement\_rate}
+	\SetKwData{return}{return}
 	
-	 \SetAlgoSkip{2em} % Erhöht den vertikalen Abstand zwischen den Zeilen
+	\SetAlgoSkip{2em} % Erhöht den vertikalen Abstand zwischen den Zeilen
 	
+	% Initialization
+	\textbf{Initialization:}
 	
-	\threshold = 0.1\;
+	\text{\code{residuum}} = \code{get\_distance(action)}, \text{\code{reward}} = $-$\code{residuum}, \text{\code{dynamic\_reward}} = \text{\code{dynamic\_penalty}} = 0, \text{\code{total\_reward}} = 0, \text{\code{no\_improvement\_limit}} = 50, \code{done} $=$ \code{False}\;	
 	
-	\residuum $\gets$ self.get\_distance(action)\;
-	\distancesarray.append(\residuum)\;
-	reward $\gets$ -\residuum\;
+	% Check Conditions
+	\greencomment{\# Belohung, wenn die derzeitige Aktion besser als die vorherige ist}
 	
-	\tcp{Bestrafung für hohe Distanzen}
-	\If{\residuum $>$ \threshold}{
-		reward $\gets$ reward - \residuum\;
+	 \If{$\text{len}(\text{\code{distances}}) > 1$ \textbf{and} \text{\code{residuum}} $<$ \text{\code{distances[n-1]}}}
+	{
+		\hspace*{1em} $\text{\code{residuum\_difference\_reward}} = \text{\code{distances[n-1]}} - \text{\code{residuum}}$
+		
+		\hspace*{1em} $\text{\code{dynamic\_reward}} = \text{\code{dynamic\_reward}} + \text{\code{residuum\_difference\_reward}} \cdot (\text{\code{distances[n-1]}} - \text{\code{residuum}})$
 	}
 	
-	\tcp{Belohnung, wenn die aktuelle Aktion besser ist als die vorherige}
-	\If{len(\distancesarray) $>$ $1$ \textbf{and} \residuum $<$ \distancesarray[-2]}{
-		reward $\gets$ reward + \residuum\;
+	\greencomment{\# Bestrafung, wenn die Aktion schlechter als die vorherige ist}
+	
+	\If{$\text{len}(\text{\code{best\_actions}}) > 1$ \textbf{and} \text{\code{residuum}} $>$ \text{\code{best\_distances[-2]}}}
+	{
+		\hspace*{1em} $\text{\code{residuum\_difference\_penalty}} = \text{\code{residuum}} - \text{\code{distances[n-1]}}$
+		
+		\hspace*{1em} $\text{\code{dynamic\_penalty}} = \text{\code{dynamic\_penalty}} \cdot (\text{\code{residuum}} - \text{\code{distances[n-1]}})$
 	}
 	
-	\tcp{Bestrafung, wenn die Distanz schlechter ist als bei der vorherigen Aktion}
-	\If{len(\distancesarray) $>$ $1$ \textbf{and} \residuum $>$ \distancesarray[-2]}{
-		reward $\gets$ reward - \residuum\;
+	$\text{\code{reward}} = \text{\code{reward}} + \text{\code{dynamic\_reward}}$
+	
+	$\text{\code{penalty}} = \text{\code{penalty}} + \text{\code{dynamic\_penalty}}$
+	
+	% Update Improvement Rate and Threshold
+	\greencomment{\# Berechnet die Verbesserungsrate, passt den Schwellenwert für gute Punkte an und setzt das Limit für aufeinanderfolgende Nichtverbesserungen.
 	}
 	
-	\If{len(\distancesarray) $>$ $1$}{
-		\improvementrate $\gets$ (\distancesarray[-2] - \distancesarray[-1]) / \distancesarray[-2]\;
+	\If{$\text{len}(\text{\code{best\_distances}}) > 1$}
+	{
+		\hspace*{1em} $\text{\code{improvement\_rate}} = \dfrac{\text{\code{distances[n-1]}} - \text{\code{distances[n]}}}{\text{\code{distances[n-1]}}}$
+		
+		\hspace*{1em} \text{\code{append improvement\_rate to improvement\_rate\_history}}
+		
+		\hspace*{1em} \text{\code{good\_points\_thrs}} $= \max\{0.9, \text{\code{good\_points\_thrs}} \cdot (1 - \text{\code{improvement\_rate}})\}$
+		
+		\hspace*{1em} \text{\code{no\_improvement\_limit}} $= \max \{50, 100 \cdot \text{\code{improvement\_rate}} \}$
+		
+	}
+	\Else
+	{
+		\hspace*{1em} \text{\code{no\_improvement\_rate}} $= 50$
 	}
 	
-	\tcp{Belohnung für niedrige Distanzen}
-	\If{\residuum $\leq$ \threshold}{
-		done $\gets$ True\;
-		\If{len(\distancesarray) $>$ $1$}{
-			\If{\improvementrate $>$ $0.25$}{
-				\threshold $\gets$ 0.6 * \threshold\;
-			}
-			\Else{
-				\threshold $\gets$ 0.98 * \threshold\;
-			}
+	% Check Termination
+	\greencomment{\# Wenn residuum besser als Schwellenwert}
+	
+	\If{\text{\code{residuum}} $\leq$ \text{\code{good\_points\_threshold}}}
+	{
+		\hspace*{1em} \text{\code{done}} $=$ \text{\code{True}}
+		
+		\hspace*{1em} \text{\code{consecutive\_no\_improvement}} $= 0$
+	}
+	
+	\Else
+	{
+		\hspace*{1em} \text{\code{consecutive\_no\_improvement}} = \text{\code{consecutive\_no\_improvement}} $+ 1$
+		
+		\hspace*{1em} \If{\text{\code{consecutive\_no\_improvement}} $\geq$ \text{\code{no\_improvement\_limit}}}
+		{
+			\hspace*{2em} \text{\code{done}} $=$ \text{\code{True}}
+			
+			\hspace*{2em} \text{\code{reward}} $= 0$
 		}
-		\Else{
-			\threshold $\gets$ 0.99 * \threshold\;
-		}
 	}
+	
+	% Reward Shaping
+	\greencomment{\# Belohnung, wenn die Verbesserungsrate besser ist als $0.01$}
+	
+	\If{\text{\code{improvement\_rate}} $> 0.01$}
+	{
+		\hspace*{1em} \text{\code{reward}} $=$ \text{\code{reward}} $+ 1$ 
+	}
+	
+	\textbf{return} \quad \text{\code{state}}, \text{\code{reward}}, \text{\code{done}}
 	
 \end{algorithm}
+\medskip
 
+\text{Beschreibung:}
+\smallskip
+
+\begin{enumerate}
+	\item \textbf{Initialisierung:}
+	\begin{itemize}
+		\item Die Variable \texttt{residuum} wird durch \texttt{get\_distance(action)} initialisiert, wobei \texttt{action} die aktuelle Aktion darstellt.
+		\item Die Variable \texttt{reward} wird als das Negative des Residuums initialisiert, um eine Strafe für ungünstige Zustände zu erhalten.
+		\item Die dynamisch akkumulierte Belohnung (\texttt{dynamic\_reward}) und Strafe (\texttt{dynamic\_penalty}) sowie die Gesamtbelohnung (\texttt{total\_reward}) werden auf Null gesetzt.
+		\item Die \texttt{no\_improvement\_limit} wird auf 50 festgelegt, um die Anzahl aufeinanderfolgender Iterationen ohne Verbesserung zu begrenzen.
+		\item Die Variable \texttt{done} wird auf \texttt{False} gesetzt, um den Algorithmus als nicht abgeschlossen zu markieren.
+	\end{itemize}
+	
+	\item \textbf{Überprüfung der Bedingungen:}
+	\begin{itemize}
+		\item Wenn die Länge der Liste \texttt{distances} größer als eins ist und das aktuelle Residuum kleiner als das vorherige Residuum ist, wird eine Belohnung für die Verbesserung berechnet und zu \texttt{dynamic\_reward} addiert.
+		\item Wenn die Länge der Liste \texttt{best\_actions} größer als eins ist und das aktuelle Residuum größer als das vorherige beste Residuum ist, wird eine Strafe für die Verschlechterung berechnet und zu \texttt{dynamic\_penalty} addiert.
+	\end{itemize}
+	
+	\item \textbf{Aktualisierung der Belohnung und Strafe:}
+	\begin{itemize}
+		\item Die dynamisch akkumulierte Belohnung (\texttt{dynamic\_reward}) und Strafe (\texttt{dynamic\_penalty}) werden zu \texttt{reward} und \texttt{penalty} addiert.
+	\end{itemize}
+	
+	\item \textbf{Aktualisierung der Verbesserungsrate und des Schwellenwerts für gute Punkte:}
+	\begin{itemize}
+		\item Die Verbesserungsrate wird berechnet und zur Verbesserungsraten-Historie (\texttt{improvement\_rate\_history}) hinzugefügt.
+		\item Der Schwellenwert für gute Punkte (\texttt{good\_points\_thrs}) wird entsprechend der aktuellen Verbesserungsrate angepasst.
+		\item Die Grenze für aufeinanderfolgende Nichtverbesserungen (\texttt{no\_improvement\_limit}) wird basierend auf der Verbesserungsrate aktualisiert.
+	\end{itemize}
+	
+	\item \textbf{Überprüfung der Terminierungsbedingung:}
+	\begin{itemize}
+		\item Wenn das aktuelle Residuum kleiner oder gleich dem Schwellenwert für gute Punkte ist, wird der Algorithmus als abgeschlossen markiert und die Anzahl aufeinanderfolgender Nichtverbesserungen wird auf null zurückgesetzt.
+		\item Andernfalls wird die Anzahl aufeinanderfolgender Nichtverbesserungen inkrementiert, und wenn diese die Grenze erreicht oder überschreitet, wird der Algorithmus ebenfalls als abgeschlossen markiert und die Belohnung auf null gesetzt.
+	\end{itemize}
+	
+	\item \textbf{Belohnungsformung:}
+	\begin{itemize}
+		\item Eine zusätzliche Belohnung wird vergeben, wenn die Verbesserungsrate größer als 0,01 ist.
+	\end{itemize}
+	
+	\item \textbf{Rückgabe:}
+	Die Zustandsinformation, die Belohnung und der Abschlussstatus werden zurückgegeben.
+\end{enumerate}
 
 
 
