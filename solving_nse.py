@@ -15,6 +15,7 @@ from stable_baselines3.common.results_plotter import load_results, ts2xy
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.env_checker import check_env
 import structlog
+from tqdm import tqdm
 
 import torch
 
@@ -138,7 +139,7 @@ class SaveActionsCallback(BaseCallback):
 
 
 class CustomEnv(gym.Env):
-    def __init__(self, dimension):
+    def __init__(self, dimension, improvement_rate_thr=0.95, scaling="exponential"):
         super(CustomEnv, self).__init__()
         self.x_min = -10.0
         self.x_max = 10.0
@@ -158,6 +159,9 @@ class CustomEnv(gym.Env):
             [random.uniform(self.x_min, self.x_max),
              random.uniform(self.y_min, self.y_max)])  # self.state = point in space
 
+        self.improvement_rate_thr = improvement_rate_thr
+        self.scaling = scaling
+
         self.best_actions = []
         self.last_obs = None
         self.actions = []
@@ -167,11 +171,12 @@ class CustomEnv(gym.Env):
         self.good_points_plot = []
         self.good_res_plot = []
         self.best_action_so_far = None
-        self.good_points_thrs = 0.1
+        self.good_points_thrs = 0.01
         self.rewards = []
         self.reward_action_map = []
         self.all_actions = []
         self.all_epoch_time_action_residuals = []
+        self.global_optimum = None
 
         self.all_residuals = list()
 
@@ -208,6 +213,7 @@ class CustomEnv(gym.Env):
             # rosenbrock function
             rosenbrock_eq1 = lambda x: 10 * (x[1] - x[0] ** 2)
             rosenbrock_eq2 = lambda x: 1 - x[0]
+            self.global_optimum = (1, 1)
             return [rosenbrock_eq1, rosenbrock_eq2]
 
         else:
@@ -228,7 +234,6 @@ class CustomEnv(gym.Env):
 
             return list_of_eqs
 
-
     def get_distance_discrete(self, point):
         """
         Calculate the residuum for the given point.
@@ -236,7 +241,7 @@ class CustomEnv(gym.Env):
         :param nse:
         :return:
         """
-        scaling = "exponential"
+
         equations = self.nse()
 
         # Calculate the function values for all equations
@@ -246,7 +251,7 @@ class CustomEnv(gym.Env):
         normal_res = sum((values[i] - values[j]) ** 2 for i in range(len(values)) for j in range(i + 1, len(values)))
         self.all_residuals.append(normal_res)
 
-        if scaling == "minmax":
+        if self.scaling == "minmax":
             if len(self.all_residuals) > 1:
                 min_values = np.min(self.all_residuals, axis=0)
                 max_values = np.max(self.all_residuals, axis=0)
@@ -257,19 +262,19 @@ class CustomEnv(gym.Env):
             else:
                 return normal_res, normal_res
 
-        elif scaling == "logarithmic":
+        elif self.scaling == "logarithmic":
             scaled_values = np.log1p(np.abs(values)) / np.log(10)
             res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
                       range(i + 1, len(scaled_values)))
             return res, normal_res
 
-        elif scaling == "exponential":
+        elif self.scaling == "exponential":
             scaled_values = np.exp(-np.abs(values) * 1000)
             res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
                       range(i + 1, len(scaled_values)))
             return res, normal_res
 
-        elif scaling == "zscore":
+        elif self.scaling == "zscore":
             if len(self.all_residuals) > 1:
                 mean_values = np.mean(self.all_residuals, axis=0)
                 std_values = np.std(self.all_residuals, axis=0)
@@ -280,7 +285,7 @@ class CustomEnv(gym.Env):
             else:
                 return normal_res, normal_res
 
-        elif scaling == "normal":
+        elif self.scaling == "normal":
             return normal_res, normal_res
 
     def _plot_res(self, dimension, plot_contour=False):
@@ -323,7 +328,6 @@ class CustomEnv(gym.Env):
                         plt.scatter(good_point[0], good_point[1], color='green', label='Result')
                     else:
                         plt.scatter(good_point[0], good_point[1], color='green')
-
 
                 plt.colorbar(label='Residuum')
                 plt.legend()
@@ -451,12 +455,11 @@ class CustomEnv(gym.Env):
         self.actions.append(action)
         residuum, normal_residuum = self.get_distance_discrete(action)
         self.distances.append(normal_residuum)
-        self.all_actions.append(action)
+        self.action_precision[tuple(action)] = normal_residuum
 
         # just print better action
         if self.distances[-1] <= min(self.distances):
-            print("Best action:", self.actions[-1])
-            print("Residuum:", self.distances[-1])
+            # print("Best action:", self.actions[-1], "\t", "Residuum:", self.distances[-1])
             # print()
             self.best_actions.append(action)
             self.best_distances.append(self.distances[-1])
@@ -469,154 +472,91 @@ class CustomEnv(gym.Env):
         if self.distances[-1] <= 1e-3:
             self.good_points_plot.append(action)
 
-        if discrete:
-            self.state = action
+        self.state = action
 
-            if normal_residuum < self.best_residuum:
-                self.best_residuum = normal_residuum
+        if normal_residuum < self.best_residuum:
+            self.best_residuum = normal_residuum
 
-            self.min_residuum = min(self.min_residuum, normal_residuum)
-            self.max_residuum = max(self.max_residuum, normal_residuum)
+        self.min_residuum = min(self.min_residuum, normal_residuum)
+        self.max_residuum = max(self.max_residuum, normal_residuum)
 
-            # normalize residuum
-            # if self.max_residuum - self.min_residuum != 0:
-            #     normalized_residuum = (residuum - self.min_residuum) / (self.max_residuum - self.min_residuum)
-            # else:
-            #     normalized_residuum = 0
-            #
-            # residuum = normalized_residuum
+        reward = -residuum
 
-            # print(f"Normalized Residuum: {normalized_residuum}")
+        if isinstance(reward, int) or isinstance(reward, float):
+            self.rewards.append(reward)
+            self.reward_action_map.append((action, reward))
+        else:
+            self.rewards.append(reward[0])
+            self.reward_action_map.append((action, reward[0]))
 
-            # reward = np.exp(-normalized_residuum * 1000)
-            # reward = 1 - residuum
-            # reward = np.log(1 / (normalized_residuum + 1e-8))
+        dynamic_reward = 0.0
+        dynamic_penalty = 0.0
+        reward_scaling_factor = 1.0
+        penalty_scaling_factor = 1.0
 
-            # reward = self.adaptive_reward(normalized_residuum, self.min_residuum, self.max_residuum,
-            #                               reward_type='logarithmic',
-            #                               alpha_init=0.99, beta_init=0.99, gamma=0.1, state=self.state)
+        # penalty if residuum is greater than threshold
+        if residuum > self.good_points_thrs:
+            dynamic_reward += residuum * reward_scaling_factor
+        else:
+            dynamic_penalty += residuum * penalty_scaling_factor
 
-            # reward = self.logarithmic_reward(residuum, self.min_residuum, self.max_residuum, alpha=1.0, beta=1.0)
+        # print(f"Reward: {reward}")
+        if residuum <= self.good_points_thrs:
+            self.good_points.append(action)
 
-            reward = -residuum
+        # Reward if action is better than last action
+        if len(self.distances) > 1 and residuum < self.distances[-2]:
+            residuum_difference_reward = self.distances[-2] - residuum
+            dynamic_reward += residuum_difference_reward * (self.distances[-2] - residuum)
 
-            if isinstance(reward, int) or isinstance(reward, float):
-                self.rewards.append(reward)
-                self.reward_action_map.append((action, reward))
-            else:
-                self.rewards.append(reward[0])
-                self.reward_action_map.append((action, reward[0]))
+            self.best_action_so_far = action
 
-            if residuum > self.good_points_thrs:
-                reward -= residuum
+        # penalty if action is worse than last action
+        if len(self.best_actions) > 1 and residuum > self.best_distances[-2]:
+            residuum_difference_penalty = residuum - self.distances[-2]
+            dynamic_penalty += residuum_difference_penalty * (residuum - self.distances[-2])
 
-            # print(f"Reward: {reward}")
+        reward += dynamic_reward
+        reward -= dynamic_penalty
 
-            if residuum <= self.good_points_thrs:
-                self.good_points.append(action)
+        self.time_residuum.append((time.time() - self.start_time, self.best_residuum))
+        # self.time_action.append((time.time() - self.start_time, action))
 
-            # Reward if action is better than last action
-            # if len(self.distances) > 1 and residuum < self.distances[-2]:
-            #     reward += residuum
-            #     self.best_action_so_far = action
+        done = False
+        truncated = False
 
-            # penalty if action is worse than last action
-            if len(self.best_actions) > 1 and residuum > self.best_distances[-2]:
-                reward -= residuum
+        improvement_rate = 0.0
 
-            self.time_residuum.append((time.time() - self.start_time, self.best_residuum))
-            # self.time_action.append((time.time() - self.start_time, action))
+        if len(self.best_distances) > 1:
+            improvement_rate = (self.best_distances[-2] - self.best_distances[-1]) / self.best_distances[-2]
+            self.improvement_rate_history.append(improvement_rate)
 
-            done = False
-            truncated = False
-            # reward = np.clip(reward, 0, 1)
+            # Adaptive threshold
+            self.good_points_thrs = max(0.9, self.good_points_thrs * (1 - improvement_rate))
 
-            epsilon = 1e-8
-            max_residuum = 100.0  # Determine the maximum possible residuum value based on your problem
+            # Variable consecutive no improvement limit
+            no_improvement_limit = max(50, 100 * improvement_rate)
 
-            max_reward = 1 / epsilon
-            min_reward = 1 / (max_residuum + epsilon)
+        else:
+            no_improvement_limit = 50
 
-            # calculate improvement rate
-            if len(self.best_distances) > 1:
-                improvement_rate = (self.best_distances[-2] - self.best_distances[-1]) / self.best_distances[-2]
-                self.improvement_rate_history.append(improvement_rate)
+        if residuum <= self.good_points_thrs:  # if distance is less than reset
+            done = True
+            self.consecutive_no_improvement = 0
+        else:
+            self.consecutive_no_improvement += 1
 
-            if residuum <= self.good_points_thrs:  # if distance is less than reset
-                # print("Reset")
+            if self.consecutive_no_improvement >= no_improvement_limit:
                 done = True
-                # reward = 1 + (self.good_points_thrs - residuum) / self.good_points_thrs
+                reward = 0
 
-                if len(self.best_distances) > 1:
-                    improvement_rate = (self.best_distances[-2] - self.best_distances[-1]) / self.best_distances[-2]
-                    if improvement_rate > 0.25:
-                        self.good_points_thrs *= 0.1  # Aggressive decrease for significant improvement
-                    else:
-                        self.good_points_thrs *= 0.98  # Gradual decrease for slow improvement
-                else:
-                    self.good_points_thrs *= 0.9
+        # Reward shaping
+        if improvement_rate > 0.01:  # Threshold can be adjusted
+            reward += 1  # Bonus can be adjusted
 
-                # done = True
-                # reward = 1 + (self.good_points_thrs - residuum) / self.good_points_thrs
-                #
-                # if len(self.best_distances) > 1:
-                #     # Calculate the current improvement rate
-                #     current_improvement_rate = (self.best_distances[-2] - self.best_distances[-1]) / \
-                #                                self.best_distances[-2]
-                #
-                #     # Update the improvement rate history
-                #     self.improvement_rate_history.append(current_improvement_rate)
-                #     if len(self.improvement_rate_history) > self.improvement_rate_window_size:
-                #         self.improvement_rate_history.pop(0)
-                #
-                #     # Calculate the adaptive threshold
-                #     sorted_improvement_rates = sorted(self.improvement_rate_history, reverse=True)
-                #     adaptive_threshold_index = int(0.8 * len(sorted_improvement_rates))  # Adjust the quantile as needed
-                #     adaptive_threshold = sorted_improvement_rates[adaptive_threshold_index]
-                #
-                #     if current_improvement_rate > adaptive_threshold:
-                #         self.good_points_thrs *= 0.8  # Aggressive decrease for significant improvement
-                #     else:
-                #         self.good_points_thrs *= 0.95  # Gradual decrease for slow improvement
-                # else:
-                #     self.good_points_thrs *= 0.9
+        self.all_epoch_time_action_residuals.append((time.time() - self.start_time, action, normal_residuum))
 
-
-
-            #     done = True
-            #     reward = 1 + (self.good_points_thrs - residuum) / self.good_points_thrs
-            #     self.good_points_thrs *= max(0.9, self.good_points_thrs * 0.99)
-            #     self.consecutive_no_improvement = 0
-            # else:
-            #     self.consecutive_no_improvement += 1
-            #
-            #     if self.consecutive_no_improvement >= 100:
-            #         done = True
-            #         reward = 0
-
-            # reward = 1 / (residuum + epsilon)
-            # reward = (reward - min_reward) / (max_reward - min_reward)
-            # self.good_points_thrs *= max(0.9, self.good_points_thrs * 0.99)
-
-            # done = True
-            # reward = -np.log(residuum + epsilon)
-            # reward = (reward - min_reward) / (max_reward - min_reward)
-            # self.good_points_thrs *= max(0.9, self.good_points_thrs * 0.99)
-            else:
-                reward = -np.log(residuum + epsilon)
-                reward = (reward - min_reward) / (max_reward - min_reward)
-
-            # else:
-            #     reward = 1 / (residuum + epsilon)
-            #     reward = (reward - min_reward) / (max_reward - min_reward)
-
-            # self.best_action.append(action)
-            # self.last_obs = self.state
-
-            # reward = np.clip(reward, 0, 1)
-            self.all_epoch_time_action_residuals.append((time.time() - self.start_time, action, normal_residuum))
-
-            return self.state, reward, done, truncated, {}
+        return self.state, reward, done, truncated, {}
 
     def reset(self, seed=None):
         """
@@ -629,6 +569,28 @@ class CustomEnv(gym.Env):
         self.state = np.random.uniform(low=self.x_min, high=self.x_max, size=self.dimension)
 
         return self.state, {}
+
+
+def learning_rate_func(progress_remaining: float) -> float:
+    """
+    This function takes the remaining progress (from 1 to 0) and returns the learning rate.
+    You can modify this function to implement your own learning rate schedule.
+    """
+    start_lr = 0.001  # Starting learning rate
+    end_lr = 0.0001  # Final learning rate
+    lr = start_lr * progress_remaining + end_lr * (1 - progress_remaining)
+    return lr
+
+
+def ent_coef_func(progress_remaining: float) -> float:
+    """
+    This function takes the remaining progress (from 1 to 0) and returns the ent_coef.
+    You can modify this function to implement your own ent_coef schedule.
+    """
+    start_ent_coef = 0.8  # Starting ent_coef
+    end_ent_coef = 0.01  # Final ent_coef
+    ent_coef = start_ent_coef * progress_remaining + end_ent_coef * (1 - progress_remaining)
+    return ent_coef
 
 
 def normal_train_eval(epochs: float, dimension: int, model: str):
@@ -649,58 +611,60 @@ def normal_train_eval(epochs: float, dimension: int, model: str):
         model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
                     learning_starts=1000)
     elif model == "PPO":
-        model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.15)
+        model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.75,
+                    learning_rate=learning_rate_func,
+                    vf_coef=0.75)
 
     logger.info("Model created")
 
     # Train model
-    logger.info(f"Start training. Epochs: {epochs}; Model: {model}; Dimension: {dimension}")
+    # logger.info(f"Start training. Epochs: {epochs}; Model: {model}; Dimension: {dimension}")
     start_training_time = time.time()
     model.learn(total_timesteps=int(epochs), progress_bar=False)
-    print("---" * 100)
-    print(f"\nTraining time: {round(time.time() - start_training_time, 3)}s")
-    print("===" * 100)
+    # print("---" * 100)
+    # print(f"\nTraining time: {round(time.time() - start_training_time, 3)}s")
+    # print("===" * 100)
 
-    if dimension == 1:
-        # plot residuum
-        plot_nse(env.nse(), np.linspace(-10, 10, 10000), dimension=dimension, contour_plot=False, points=env.good_points_plot,
-                 points_x=None, distances=env.best_distances)
-
-    if dimension == 2:
-        print(f"Len of good points plot: {len(env.good_points_plot)}")
-        plot_nse(env.nse(), np.linspace(-5, 5, 100), dimension=dimension, contour_plot=True, points=env.good_points_plot,
-                    points_x=None, distances=env.best_distances)
+    # if dimension == 1:
+    #     # plot residuum
+    #     plot_nse(env.nse(), np.linspace(-10, 10, 10000), dimension=dimension, contour_plot=False, points=env.good_points_plot,
+    #              points_x=None, distances=env.best_distances)
+    #
+    # if dimension == 2:
+    #     print(f"Len of good points plot: {len(env.good_points_plot)}")
+    #     plot_nse(env.nse(), np.linspace(-5, 5, 100), dimension=dimension, contour_plot=True, points=env.good_points_plot,
+    #                 points_x=None, distances=env.best_distances)
 
     # plot time_residuum and time_action in subplots
-    time_residuum_map = env.time_residuum
+    # time_residuum_map = env.time_residuum
     # time_action_map = env.time_action
 
-    fig, axs = plt.subplots(2, 1, figsize=(15, 9))
-    times_residuum = [time for time, residuum in time_residuum_map]
-    residuums = [residuum for time, residuum in time_residuum_map]
+    # fig, axs = plt.subplots(2, 1, figsize=(15, 9))
+    # times_residuum = [time for time, residuum in time_residuum_map]
+    # residuums = [residuum for time, residuum in time_residuum_map]
     # times_action = [time for time, action in time_action_map]
     # actions = [action for time, action in time_action_map]
 
-    axs[0].plot(times_residuum, residuums)
-    axs[0].set_title("Time Residuum")
-    axs[0].set_xlabel("Time (in s)")
-    axs[0].set_ylabel("Residuum")
-    axs[0].grid()
-
-    # scale logarithmic
-    axs[0].set_yscale('log')
+    # axs[0].plot(times_residuum, residuums)
+    # axs[0].set_title("Time Residuum")
+    # axs[0].set_xlabel("Time (in s)")
+    # axs[0].set_ylabel("Residuum")
+    # axs[0].grid()
+    #
+    # # scale logarithmic
+    # axs[0].set_yscale('log')
 
     # axs[1].plot(times_action, actions)
     # axs[1].set_title("Time Action")
     # axs[1].set_xlabel("Time")
     # axs[1].set_ylabel("Action")
 
-    plt.show()
-
-    good_points = env.good_points
+    # plt.show()
+    #
+    # good_points = env.good_points
     distances = env.distances
-
-    print(f"Number of good points: {len(good_points)}")
+    #
+    # print(f"Number of good points: {len(good_points)}")
     # print(f"Good points: {good_points}")
 
     print(f"Residuum Average: {np.mean(distances)}")
@@ -711,43 +675,70 @@ def normal_train_eval(epochs: float, dimension: int, model: str):
     y_max = 3.0
 
     # plot improvement rate history
-    plt.figure(figsize=(8, 6))
-    plt.plot(env.improvement_rate_history)
-    plt.xlabel('Step')
-    plt.ylabel('Improvement Rate')
-    plt.title('Improvement Rate History')
-    plt.grid()
-    plt.show()
+    # plt.figure(figsize=(8, 6))
+    # plt.plot(env.improvement_rate_history)
+    # plt.xlabel('Step')
+    # plt.ylabel('Improvement Rate')
+    # plt.title('Improvement Rate History')
+    # plt.grid()
+    # plt.show()
 
 
 def benchmark(epochs: list):
-    df = pd.DataFrame(columns=['Epochs', 'Time', 'Action', 'Residuum'])
+    df_list = []
+
     for epoch in epochs:
-        dimension = 2
-        env = CustomEnv(dimension=dimension)
+        print(f"Epoch: {epoch}")
+        residuum_average = []
+        for run in range(7):
+            dimension = 2
+            env = CustomEnv(dimension=dimension)
 
-        # action noise
-        n_actions = env.action_space.shape[-1]
-        action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.75 * np.ones(n_actions))
-        # model = DDPG("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
-        #             buffer_size=1000)
+            # action noise
+            n_actions = env.action_space.shape[-1]
+            action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.75 * np.ones(n_actions))
+            # model = DDPG("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
+            #             buffer_size=1000)
 
-        # model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
-        #             learning_starts=1000)
-        model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.15)
-        logger.info("Model created")
+            # model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
+            #             learning_starts=1000)
+            model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.75,
+                        learning_rate=learning_rate_func,
+                        vf_coef=0.75)
+            # logger.info(f"Model created; Epochs: {epoch}")
 
-        actions = []
-        callback = SaveActionsCallback(1, actions)
-        logger.info("Start training")
-        start_training_time = time.time()
-        model.learn(total_timesteps=int(epoch), progress_bar=False)
-        print("---" * 100)
-        print(f"\nTraining time: {round(time.time() - start_training_time, 3)}s")
-        print("===" * 100)
+            # logger.info("Start training")
+            start_training_time = time.time()
+            model.learn(total_timesteps=int(epoch), progress_bar=False)
+            print("---" * 100)
+            print(f"\nTraining time: {round(time.time() - start_training_time, 3)}s")
+            print("===" * 100)
 
-        df = df.append({'Epochs': epoch, 'Time': round(time.time() - start_training_time, 3),
-                        'Action': actions, 'Residuum': env.best_residuum}, ignore_index=True)
+            best_action = env.best_actions[-1]
+            best_residuum = env.best_residuum
+            action_distance_global_optimum = {}
+            for action, residuum in env.action_precision.items():
+                action_distance_global_optimum[action] = np.linalg.norm(np.array(action) - np.array(env.global_optimum))
+            best_action_global_optimum = min(action_distance_global_optimum, key=action_distance_global_optimum.get)
+            best_residuum_global_optimum = action_distance_global_optimum[best_action_global_optimum]
+            best_action_global_optimum = list(best_action_global_optimum)
+            best_action_global_optimum = np.array(best_action_global_optimum)
+            print(f"Residuum Average: {np.mean(env.distances)}")
+
+            # Calculate the average residuum after each run
+            residuum_average = np.mean(env.distances)
+
+            df_epoch = pd.DataFrame({'Epochs': [epoch],
+                                     'Run': [run],
+                                     'Time': [round(time.time() - start_training_time, 3)],
+                                     'Best Action': [best_action],
+                                     'Best Residuum': [best_residuum],
+                                     'Best Action global optimum': [best_action_global_optimum],
+                                     'Best Residuum global optimum': [best_residuum_global_optimum],
+                                     'Residuum Average': [residuum_average]})  # Add the average residuum to the dataframe
+            df_list.append(df_epoch)
+
+    df = pd.concat(df_list, ignore_index=True)
     date = time.strftime("%Y-%m-%d_%H-%M-%S")
     df.to_csv(f"benchmark_{date}.csv", index=False)
 
@@ -756,7 +747,12 @@ if __name__ == '__main__':
     epochs = 6e3
     dimension = 2
     model = "PPO"
-    normal_train_eval(epochs, dimension, model)
+    # start from 0.1 to 0.95 with 0.05 steps
+
+    # for i in tqdm(range(5)):
+    #     normal_train_eval(epochs, dimension, model)
+    # print("---" * 100)
+    benchmark([1e3, 2e3, 3e3, 4e3, 5e3, 6e3, 7e3, 8e3, 9e3, 1e4, 2e4, 3e4, 4e4, 5e4, 6e4, 7e4, 8e4, 9e4])
 
     # plot reward action mapping
     # actions = [action for action, reward in env.reward_action_map]
