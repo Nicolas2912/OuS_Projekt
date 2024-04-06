@@ -406,10 +406,10 @@ Nachfolgend ist eine verkürzte Initialisierung der Umgebung dargestellt.
 Bei der Initialisierung der Umgebung muss der Bereich der möglichen Aktionen (\code{action\_space}) angegeben werden. Da mögliche Lösungen für ein nichtlineares Gleichungssystem sich im ganzen Raum $\mathbb{R}^n$ befinden können, bietet sich dieser auch für die möglichen Aktionen an. Jedoch ist es nicht möglich den ganzen Raum (von $-\infty$ bis $\infty$) anzugeben, sodass Grenzen gesetzt werden müssen. Diese sind im Code mit den Variablen \code{self.low\_bounds} und \code{self.high\_bounds} beschrieben. Hierbei zeichnet sich auch einer der Nachteile ab. Da bei den allermeisten nichtlinearen Gleichungssystemen von Beginn an nicht abzuschätzen ist, in welchem Teil des Lösungsraumes sich die Lösung(en) befindet/befinden, stellt die Wahl des Aktionsraumes auch eine Herausforderung dar. Ähnlich wie beim Newton-Raphson-Verfahren, bei dem ein initialer Startpunkt notwendig ist, der die Laufzeit des Verfahrens maßgeblich beeinflussen kann, so kann auch die Größe des Aktionsraumes die Laufzeit der Lösungsfindung maßgeblich beeinflussen.
 \bigskip
 
-\underline{Berechnugn des Residuums (Distanz):}
+\underline{Berechnung des Residuums (Distanz):}
 \smallskip
 
-Da die Güte der aktuell gefundenen Lösung mithilfe des Residuums ermittelt wird, wird an dieser Stelle kurz dargestellt wie das Residuum im Projekt-Code berechnet wird.
+Da die Qualität der aktuellen Lösung im Projektcode anhand des Residuums bestimmt wird, ist es wichtig, den Prozess der Residuum-Berechnung kurz darzustellen.
 \medskip
 
 Für manche Arten von Problemen hat es sich als vorteilhaft erwiesen, das Residuum auf eine festgelegte Skala zu skalieren (bspw. logarithmische Skalierung, Min-Max-Skalierung etc.). Im folgenden ist ein Ausschnitt aus der Methode zur Berechnung des Residuums zu sehen.
@@ -609,7 +609,7 @@ Zuerst seien die wichtigsten Variablen in Tabelle \ref{tab:Variablendefinition} 
 	Die Zustandsinformation, die Belohnung und der Abschlussstatus werden zurückgegeben.
 \end{enumerate}
 
-Folgende nichtlineare Gleichungssystem wurden für die Auswertung des Verfahrens herangezogen:
+Folgende nichtlineare Gleichungssysteme wurden für die Auswertung des Verfahrens herangezogen:
 \smallskip
 
 \underline{Eindimensionales nichtlineares Gleichungssystem:}
@@ -660,7 +660,7 @@ Die globalen Optima der jeweiligen Gleichungssystem sind:
 	x^{\ast} = \{-1.105, 0.461, 0.939, 0.396, -0.181, -0.459, -0.620, -0.293, -0.138, 0.000\}
 \end{align*}
 
-In diesem Kapitel wurden die wesentlichen Schritte zur Implementierung der Problemstellung beleuchtet, beginnend mit der Auswahl der Programmiersprache und Bibliothek bis hin zur Beschreibung relevanter Methoden für die Umsetzung des Agenten und der Umgebung. Dabei wird \textit{Python} als Programmiersprache gewählt, da sie eine benutzerfreundliche Integration mit der Reinforcement-Learning-Bibliothek \glqq stable-baselines3\grqq{} bietet, die eine breite Palette von wichtigen RL-Algorithmen bereitstellt. Die Umgebung wird speziell für die Problemstellung nichtlinearer Gleichungssysteme entwickelt, wobei eine angepasste Initialisierung und Berechnung des Residuums eine zentrale Rolle spielen. Ein Ausschnitt zur Ausführung eines Lernschritts wird ebenfalls präsentiert, um den Prozess der Lösungsfindung innerhalb der Umgebung zu verdeutlichen.
+In diesem Kapitel wurden die wesentlichen Schritte zur Implementierung der Problemstellung beleuchtet, beginnend mit der Auswahl der Programmiersprache und Bibliothek bis hin zur Beschreibung relevanter Methoden für die Umsetzung des Agenten und der Umgebung. Dabei wird \textit{Python} als Programmiersprache gewählt, da sie eine benutzerfreundliche Integration mit der Reinforcement-Learning-Bibliothek \glqq stable-baselines3\grqq{} bietet, die eine breite Palette von wichtigen RL-Algorithmen bereitstellt. Die Umgebung wird speziell für die Problemstellung nichtlinearer Gleichungssysteme entwickelt, wobei eine angepasste Initialisierung und Berechnung des Residuums eine zentrale Rolle spielen. Ein Ausschnitt zur Ausführung eines Lernschritts wurde ebenfalls präsentiert, um den Prozess der Lösungsfindung innerhalb der Umgebung zu verdeutlichen.
 
 Im weiteren Verlauf wurden drei nichtlineare Gleichungssysteme vorgestellt, die für die Auswertung des Verfahrens herangezogen wurden: ein eindimensionales nichtlineares Gleichungssystem, die zweidimensionale Rosenbrock-Funktion und ein $n$-dimensionales \textit{Economics Modeling Application}-Problem (vgl. \cite{CrinaGrosan2008}). Die globalen Optima der jeweiligen Gleichungssysteme werden ebenfalls präsentiert, um einen Überblick über die erwarteten Lösungen zu geben.
 
@@ -701,7 +701,7 @@ Für den Ansatz und für die gegebenen Problemstellungen haben sich folgende Erg
 	\centering
 	
 	\begin{tabular}{c||c|c|>{\centering\arraybackslash}p{2cm}|>{\centering\arraybackslash}p{3cm}|>{\centering\arraybackslash}p{2.5cm}}
-		\textbf{NSE} & \textbf{Steps} & \textbf{Time} (in s) & \textbf{$x_0$} & \textbf{Solution} & \textbf{Tolerance}  \\
+		\textbf{NSE} & \textbf{Steps} & \textbf{Time} (in s) & Startpunkt \textbf{$x_0$} & \textbf{Solution} & \textbf{Tolerance}  \\
 		\hline
 		\multirow{4}{*}{NSE 1 (\ref{nse:1})} & $5$ & $0.005$ & $5.0$ & $2.5777$ & $0.1919$\\
 		& $10$ & $0.007$ & $5.0$ & $2.4937$ & $7e-15$\\
@@ -756,7 +756,7 @@ Für den Ansatz und für die gegebenen Problemstellungen haben sich folgende Erg
 \end{figure}
 
 
-In den vorliegenden Ergebnissen fällt besonders auf, dass das vermeintlich einfachste Problem (NSE 1 \ref{nse:1}) die längste Zeit benötigt, um alle 50.000 Epochen abzuschließen - etwa 500 Sekunden. Im Gegensatz dazu liegt die Dauer für die Absolvierung der gleichen Anzahl von Epochen für die Probleme \ref{nse:rosenbrock} und \ref{nse:highdimension} in einer Größenordnung von nur knapp 100 Sekunden. Eine mögliche Erklärung dafür liegt darin, dass das Residuum für das NSE 1-Problem sehr schnell in einen extrem kleinen Bereich fällt. Dadurch erfordert selbst eine geringfügige Verbesserung des Ergebnisses bereits sehr kleine Anpassungen in den Aktionen des Agenten. Allerdings könnte der Agent aufgrund von Beschränkungen in seiner Aktionsraumgröße Schwierigkeiten haben, Änderungen im Bereich von $1e-9$ zu erreichen. Dadurch wird möglicherweise keine signifikante Verbesserung erzielt, sodass die Optimierung stagniert und die Zeit zur Absolvierung der 50000 Epochen zunimmt. 
+In den vorliegenden Ergebnissen fällt besonders auf, dass das vermeintlich einfachste Problem (NSE 1, \ref{nse:1}) die längste Zeit benötigt, um alle 50.000 Epochen abzuschließen - etwa 500 Sekunden. Im Gegensatz dazu liegt die Dauer für die Absolvierung der gleichen Anzahl von Epochen für die Probleme \ref{nse:rosenbrock} und \ref{nse:highdimension} in einer Größenordnung von nur knapp 100 Sekunden. Eine mögliche Erklärung dafür liegt darin, dass das Residuum für das erste Problem (NSE 1, \ref{nse:1}) sehr schnell in einen extrem kleinen Bereich fällt. Dadurch erfordert selbst eine geringfügige Verbesserung des Ergebnisses bereits sehr kleine Anpassungen in den Aktionen des Agenten. Allerdings könnte der Agent aufgrund von Beschränkungen in seiner Aktionsraumgröße Schwierigkeiten haben, Änderungen im Bereich von $1e-9$ zu erreichen. Dadurch wird möglicherweise keine signifikante Verbesserung erzielt, sodass die Optimierung stagniert und die Zeit zur Absolvierung der 50000 Epochen zunimmt. 
 
 Jedoch wäre dies nur eine anfängliche Idee, die tiefer untersucht werden müsste, da für die Konvergenz des Verfahrens viele weitere Parameter einen Einfluss ausüben.
 \medskip
@@ -795,18 +795,18 @@ In diesem Kapitel wurden die wichtigsten Ergebnisse vorgestellt, die mit dem Ans
 
 Als Fazit kann formuliert werden, dass das präsentierte Verfahren grundsätzlich in der Lage ist Lösungen von nichtlinearen Gleichungssystemen zu finden. Besonders gut funktioniert das Verfahren für eindimensionale Probleme, bei denen die Lösungen robust sind, als nicht sensibel auf kleine Änderungen der Aktion reagieren. Anders formuliert funktioniert das Verfahren eben für solche eindimensionale nichtlineare Gleichungssysteme gut, bei denen die Summe der Beträge der Steigungen aller Gleichungen klein ist. Für solche Probleme ist das Verfahren mit dargestellter Umsetzung in der Lage Lösungen mit einer Genauigkeit von $1e-8$ bis zu $1e-9$ zu finden. Vor dem Hintergrund der Zeit und der Berechnungskomplexität allerdings, schließt dieses Verfahren insbesondere im Vergleich zu dem etablierten Newton-Raphson-Verfahren schlecht ab. Dieses Verfahren findet mit weniger Berechnungen und in kürzerer Dauer die Lösung mit einer höheren Genauigkeit. Jedoch sollte dabei auch erwähnt sein, dass dieses Verfahren einen initialen Startpunkt benötigt, von dem das Verfahren sich iterativ der nächsten Lösung annähert. Demzufolge auch nur eine Lösung findet. 
 
-Es hängt vom spezifischen Anwendungsfall ab, ob es genügt eine Lösung zu finden, oder mehr. Sollte der Fall vorliegen, dass mehrere Lösungen gefunden werden sollen, so könnte das hier präsentierte Verfahren geeigneter sein als das Newton-Raphson-Verfahren, sofern auch die zeitliche Komponente keine große Rolle spielt.
+Es hängt vom spezifischen Anwendungsfall ab, ob es genügt eine Lösung zu finden, oder mehr. Sollte der Fall vorliegen, dass mehrere Lösungen gefunden werden sollen, so könnte das hier präsentierte Verfahren geeigneter sein als das Newton-Raphson-Verfahren, sofern auch die zeitliche Komponente keine große Rolle spielt. Zusätzlich dazu kann das hier vorgestellte Verfahren möglicherweise eher dazu verwendet werden, eine oder mehrere mögliche Startpunkte für andere iterative Verfahren zu generieren, wenn keinerlei Informationen über die grobe Lage von Lösungen vorliegt. Die iterativen Verfahren könnten im Anschluss daran die bisherigen gefundenen Lösungen nutzen, um diese weiter zu verbessern und schnell eine Lösung größerer Genauigkeit zu finden.
 \medskip
 
-Bei der Anwendung dieses Verfahrens auf die Rosenbrock-Funktion (NSE 2, \ref{nse:rosenbrock}) hat sich gezeigt, dass auch dieses Verfahren von dem Auffinden lokaler Optima betroffen ist, und schlecht zielgerichtet und mit Gewissheit das globale Optimum findet. Von dieser Problematik sind die meisten Optimierungsverfahren betroffen, sodass eine weitere Verfeinerung dieser Verfahren nötig ist, um mit solchen Herausforderungen umzugehen. Zusätzlich können weitere Informationen, die spezifisch für das Problem sind helfen, das globale Optimum besser und effizienter zu finden, jedoch wären diese Informationen weniger hilfreich für andere Problemstellungen, auf denen diese Informationen nicht zutreffen.
+Bei der Anwendung dieses Verfahrens auf die Rosenbrock-Funktion (NSE 2, \ref{nse:rosenbrock}), wurde deutlich, dass auch dieses Verfahren Schwierigkeiten hat, das globale Optimum zuverlässig zu finden. Wie viele andere Optimierungsalgorithmen ist es anfällig für das Feststecken in lokalen Optima, was seine Fähigkeit zur zielgerichteten Suche nach dem globalen Optimum einschränkt. Diese Herausforderung betrifft eine Vielzahl von Optimierungsmethoden und erfordert eine kontinuierliche Verbesserung, um damit umzugehen. Zusätzliche Informationen, die spezifisch für das Problem sind, können helfen, das globale Optimum besser und effizienter zu finden. Allerdings könnten solche Informationen für andere Problemstellungen weniger relevant sein, was ihre breite Anwendbarkeit einschränken könnte.
 \medskip
 
-Insbesondere bei nichtlinearen Gleichungen höherer Dimension deutet sich an, dass die Genauigkeit der gefundenen Lösungen stark abnimmt. Während für NSE 1 und NSE 2 Lösungen mit einer Genauigkeit von $1e-7$ bis $1e-9$ gefunden werden konnte, befand sich die beste gefundene Lösung für NSE 3 (mit einer Dimension von  $10$) in einer Größenordnung von $1e-3$ bei selber Epochen-Anzahl.
+Insbesondere bei nichtlinearen Gleichungen höherer Dimension deutet sich an, dass die Genauigkeit der gefundenen Lösungen stark abnimmt. Während für NSE 1 und NSE 2 Lösungen mit einer Genauigkeit von $1e-7$ bis $1e-9$ gefunden werden konnten, befand sich die beste gefundene Lösung für NSE 3 (mit einer Dimension von  $10$) in einer Größenordnung von $1e-3$ bei gleichbleibender Epochen-Anzahl.
 
 Es bleibt zu untersuchen, ob eine generelle Tendenz besteht, dass die Genauigkeit der Lösung mit zunehmender Dimension des Problems abnimmt. Um diese Frage zu beantworten, sind ausführliche Tests und Untersuchungen erforderlich, die eine umfassende Analyse der Leistung des Reinforcement-Learning-Agenten in Bezug auf verschiedene Problemgrößen ermöglichen. Erst nach gründlicher Analyse und Evaluation können valide Schlussfolgerungen gezogen werden.
 \\
 
-Abschließend sei darauf hingewiesen, dass neben den bereits diskutierten Parametern eine Vielzahl weiterer Faktoren die Lösungsfindung und die Qualität der Lösung beeinflussen können. Hierzu zählen:
+Abschließend ist anzumerken, dass neben den bereits diskutierten Parametern eine Vielzahl weiterer Faktoren die Lösungsfindung und die Qualität der Lösung beeinflussen können. Diese zusätzlichen Faktoren können die Effektivität des Verfahrens beeinträchtigen und sollten daher ebenfalls berücksichtigt werden. Dazu gehören:
 
 \begin{itemize}
 	\item Die Größe des Aktionsraumes
@@ -816,9 +816,9 @@ Abschließend sei darauf hingewiesen, dass neben den bereits diskutierten Parame
 	\item Der zugrunde liegende RL-Algorithmus mit allen zugehörigen beeinflussbaren Hyperparametern, wie Lernrate, Batch-Size usw.
 \end{itemize}
 
-Zusätzlich zu den diskutierten Parametern beeinflussen eine Vielzahl weiterer Faktoren die Lösungsfindung und -qualität. Eine tiefere Analyse dieser Parameter in Bezug auf die spezifische Problemstellung ist daher von entscheidender Bedeutung.
+Zusätzlich zu den diskutierten Parametern beeinflussen eine Vielzahl weiterer Faktoren die Lösungsfindung und -qualität. Eine tiefere Analyse des Einflusses dieser Parameter in Bezug auf die spezifische Problemstellung ist daher von entscheidender Bedeutung.
 
-Diese Arbeit bietet somit Einblicke in die Möglichkeiten und Herausforderungen bei der Anwendung von Reinforcement Learning zur Lösung nichtlinearer Gleichungssysteme und legt den Grundstein für weitere Forschung auf diesem Gebiet. 
+Diese Arbeit bietet somit Einblicke in die Möglichkeiten und Herausforderungen bei der Anwendung von Reinforcement Learning zur Lösung nichtlinearer Gleichungssysteme und legt den Grundstein für weitere Untersuchungen auf diesem Gebiet. 
 
 
 \newpage
