@@ -186,7 +186,7 @@
 \begin{abstract}
 	Nichtlineare Gleichungssysteme (NGS) spielen eine zentrale Rolle in vielen Bereichen der Wissenschaft und Technik, da sie zur Modellierung und Lösung komplexer Probleme in Physik, Chemie, Ingenieurwesen und anderen Disziplinen eingesetzt werden. Trotz ihrer Bedeutung stellt die Lösung von NGS aufgrund ihrer inhärenten Nichtlinearität und des Fehlens geschlossener analytischer Lösungen eine große Herausforderung dar. Traditionelle numerische Verfahren wie das Newton-Raphson-Verfahren oder Optimierungsansätze stoßen oft an ihre Grenzen, insbesondere bei hochdimensionalen Problemen, chaotischem Verhalten oder starker Abhängigkeit von Anfangsbedingungen.
 	
-	In jüngster Zeit hat der Bereich des Reinforcement Learnings (RL) zunehmend an Bedeutung gewonnen und vielversprechende Ergebnisse bei der Lösung komplexer Probleme geliefert. RL-Agenten lernen durch Interaktion mit einer Umgebung und Belohnungssignale, optimale Strategien zu entwickeln, ohne explizite Programmierung. Dieser Ansatz hat sich in verschiedenen Anwendungsfeldern wie Robotik, Spielen und Optimierungsproblemen als erfolgreich erwiesen.
+	In jüngster Zeit hat der Bereich des Reinforcement learnings (RL) zunehmend an Bedeutung gewonnen und vielversprechende Ergebnisse bei der Lösung komplexer Probleme geliefert. RL-Agenten lernen durch Interaktion mit einer Umgebung und Belohnungssignale, optimale Strategien zu entwickeln, ohne explizite Programmierung. Dieser Ansatz hat sich in verschiedenen Anwendungsfeldern wie Robotik, Spielen und Optimierungsproblemen als erfolgreich erwiesen.
 	\\
 	
 	In dieser Arbeit wird der Ansatz des RL verwendet, um Lösungen für nichtlineare Gleichungssysteme zu finden. Ein RL-Agent wird in einer maßgeschneiderten Umgebung trainiert, die die Struktur des gegebenen nichtlinearen Gleichungssystems widerspiegelt. Durch die Formulierung von Belohnungen für Aktionen, die den Agenten näher an eine Lösung führen, wird dieser befähigt, iterative Strategien zur effizienten Lösungsfindung zu erlernen.
@@ -243,12 +243,12 @@ Die Lösung solcher Systeme ist jedoch oft eine große Herausforderung, da nicht
 	\item \textbf{Globale Optimierungsverfahren}: Wenn das Gleichungssystem als Optimierungsproblem formuliert werden kann, können globale Optimierungsverfahren wie die Branch-and-Bound-Methode oder evolutionäre Algorithmen zur Lösung eingesetzt werden.
 \end{enumerate}
 
-Die Schwierigkeit, nichtlineare Gleichungssysteme zu lösen, besteht oft darin, geeignete Anfangsschätzungen für die Iterationsverfahren zu finden und die Konvergenz der Verfahren sicherzustellen. Viele Systeme weisen mehrere Lösungen auf, von denen einige instabil oder nicht physikalisch sinnvoll sein können. Darüber hinaus können nichtlineare Systeme eine komplexe Struktur mit mehreren lokalen Extrema aufweisen, was die globale Konvergenz erschwert. 
+Die Schwierigkeit, nichtlineare Gleichungssysteme zu lösen, besteht oft darin, geeignete Anfangsschätzungen für die Iterationsverfahren zu finden und die Konvergenz der Verfahren sicherzustellen. Viele Systeme weisen mehrere Lösungen auf, von denen einige instabil oder nicht physikalisch sinnvoll sein können. Darüber hinaus können nichtlineare Systeme eine komplexe Struktur mit mehreren lokalen Extrema aufweisen, was die globale Konvergenz erschwert. (vgl. \cite{Mainzer1999})
 
 
 \section{Grundlagen Reinforcement Learning}
 
-Reinforcement Learning (RL) ist ein Teilgebiet des Maschinellen Lernens, bei dem ein Agent lernt, durch Interaktion mit einer Umgebung eine bestimmte Aufgabe oder ein Ziel zu erreichen. Im Gegensatz zu überwachtem Lernen, bei dem ein Modell anhand von Trainingsbeispielen mit bekannten Eingabe-Ausgabe-Paaren gelernt wird, erhält der Agent beim Reinforcement Learning nur eine skalare Bewertung (Reward) für seine Aktionen. Durch Ausprobieren und Lernen aus den erhaltenen Rewards versucht der Agent, eine Strategie (Policy) zu finden, die die kumulative Belohnung über die Zeit maximiert.
+Reinforcement learning (RL) ist ein Teilgebiet des Maschinellen Lernens, bei dem ein Agent lernt, durch Interaktion mit einer Umgebung eine bestimmte Aufgabe oder ein Ziel zu erreichen. Im Gegensatz zu überwachtem Lernen, bei dem ein Modell anhand von Trainingsbeispielen mit bekannten Eingabe-Ausgabe-Paaren gelernt wird, erhält der Agent beim Reinforcement learning nur eine skalare Bewertung (Reward) für seine Aktionen. Durch Ausprobieren und Lernen aus den erhaltenen Rewards versucht der Agent, eine Strategie (Policy) zu finden, die die kumulative Belohnung über die Zeit maximiert.
 \\
 
 \textbf{Markov-Entscheidungsprozess:}
@@ -344,7 +344,7 @@ Abhängig von der Dimensionalität des Problems kann der Agent aus einem kontinu
 \underline{Belohnungsfunktion:}
 \smallskip
 
-Die Formulierung der Belohnungsfunktion konzentriert sich darauf, die Lösung(en) des Gleichungssystems zu finden, sofern sie denn existieren. In dieser Arbeit wird das Residuum verwendet, welches den Fehler zur eigentlichen Lösung darstellt. Das Residuum $R$ an der Optimallösung $x^{\ast}$ ist $0$, sodass das Ziel dabei ist diesen Fehler zu minimieren. 
+Die Formulierung der Belohnungsfunktion konzentriert sich darauf, die Lösung(en) des Gleichungssystems zu finden, sofern sie denn existieren. In dieser Arbeit wird das Residuum verwendet, welches den Fehler zur eigentlichen Lösung darstellt. Das Residuum $R$ an der Optimallösung $\mathbf{x}^{\ast}$ ist $\mathbf{0}$, sodass das Ziel dabei ist diesen Fehler zu minimieren. 
 
 \begin{definition}[Residuum]
 	Gegeben seien $n$ nichtlineare Gleichungen mit $\mathbb{R}^n \rightarrow \mathbb{R}^n$. Es sei vorausgesetzt, dass mindestens eine Lösung $\mathbf{x}^{\ast}$ existiert, die das Gleichungssystem löst. Dann ist das Residuum an der Stelle $\mathbf{x}$ mit $\mathbf{x} \in \mathbb{R}^n$ definiert als
@@ -357,7 +357,7 @@ Die Formulierung der Belohnungsfunktion konzentriert sich darauf, die Lösung(en
 Da der Agent das Ziel verfolgt die Belohnung über die Zeit zu maximieren, kann das negative Residuum als Belohnung interpretiert werden. Es gilt also: $Reward = -R(\mathbf{x})$.
 \\
 
-Dieses Kapitel soll die grundsätzlichen Fragen beantworten, die bei der Kombination von RL und nichtlinearen Gleichungssystemen auftreten können. Diese müssen vor der tatsächlichen Umsetzung unbedingt und mit Sorgfalt beantwortet werden, sodass eine zielführende Lösungsfindung garantiert ist.
+Dieses Kapitel soll die grundsätzlichen Fragen beantworten, die bei der Kombination von RL und nichtlinearen Gleichungssystemen auftreten können. Diese müssen vor der tatsächlichen mit Bedacht beantwortet werden, sodass eine zielführende Lösungsfindung garantiert ist.
 
 Besonderes Augenmerk gilt dabei der Umgebung, dem Zustands- sowie Aktionsraum und der Belohnungsfunktion des Agenten.
 
@@ -368,7 +368,7 @@ Da die Grundlagen für nichtlineare Gleichungssysteme, sowie für RL gelegt word
 Bevor mit der Implementierung der Problemstellung, der Umgebung und des Agents begonnen wird, ist es von entscheidender Bedeutung, die Auswahl der richtigen Programmiersprache und Bibliothek sorgfältig zu prüfen. Diese Entscheidung bildet das Fundament für das gesamte Projekt und kann einen erheblichen Einfluss auf die Effizienz, Skalierbarkeit und den Erfolg der Umsetzung haben.
 \medskip
 
-Für dieses Projekt wurde die Programmiersprache \textit{Python} als Programmiersprache gewählt, zusammen mit der Reinforcement-Learning-Bibliothek \textit{stable-baselines3}. Diese Entscheidung basiert darauf, dass \textit{stable-baselines3} eine breite Palette von wichtigen RL-Algorithmen implementiert und gleichzeitig eine benutzerfreundliche Integration mit \textit{Python} bietet. Außerdem bietet diese Bibliothek eine ausgezeichnete Kompatibilität mit der Programm-Bibliothek \textit{gymnasium} von OpenAI, die essensziell für Erstellung von RL-Umgebungen ist. Die Kombination aus \textit{Python}, \textit{stable-baselines3} und \textit{gymnasium} ermöglicht eine effiziente Entwicklung und Umsetzung von Reinforcement-Learning-Algorithmen für die gegebenen Anforderungen des Projekts (vgl. \cite{Raffin2021}, vgl. \cite{Towers2023}). Der Programm-Code kann im folgenden Repository eingesehen werden: \url{https://github.com/Nicolas2912/OuS_Projekt}.
+Für dieses Projekt wurde die Programmiersprache \textit{Python} als Programmiersprache gewählt, zusammen mit der Reinforcement-Learning-Bibliothek \textit{stable-baselines3}. Diese Entscheidung basiert darauf, dass \textit{stable-baselines3} eine breite Palette von wichtigen RL-Algorithmen implementiert und gleichzeitig eine benutzerfreundliche Integration mit \textit{Python} bietet. Außerdem bietet diese Bibliothek eine ausgezeichnete Kompatibilität mit der Programm-Bibliothek \textit{gymnasium} von OpenAI, die essenziell für Erstellung von RL-Umgebungen ist. Die Kombination aus \textit{Python}, \textit{stable-baselines3} und \textit{gymnasium} ermöglicht eine effiziente Entwicklung und Umsetzung von Reinforcement-Learning-Algorithmen für die gegebenen Anforderungen des Projekts (vgl. \cite{Raffin2021}, vgl. \cite{Towers2023}). Der Programm-Code kann im folgenden Repository eingesehen werden: \url{https://github.com/Nicolas2912/OuS_Projekt}.
 \\
 
 Für die Umsetzung des Agenten bzw. der Umgebung sind folgende Methoden für die Problemstellung relevant:
@@ -381,7 +381,7 @@ Für die Umsetzung des Agenten bzw. der Umgebung sind folgende Methoden für die
 \end{itemize}
 \bigskip
 
-Auch der RL-Algorithmus ist entscheidend für die Lösungsfindung, da er die Strategie bestimmt, nach der der Agent in der Umgebung handelt und lernt. Im Verlauf des Projekts wurden verschiedene Algorithmen aus der \textit{stable-baselines3}-Bibliothek getestet. Unter diesen hat sich der \textit{Proximal Policy Algorithmus} (PPO) als besonders geeignet für diese spezifische Problemstellung erwiesen.
+Auch der RL-Algorithmus ist entscheidend für die Lösungsfindung, da er die Strategie bestimmt, nach der der Agent in der Umgebung handelt und lernt. Im Verlauf des Projekts wurden verschiedene Algorithmen aus der \textit{stable-baselines3}-Bibliothek getestet. Unter diesen hat sich der \textit{Proximal Policy Algorithmus} (PPO) als besonders geeignet für diese spezifische Problemstellung erwiesen. Für eine detaillierte Beschreibung dieses Algorithmus sei auf \cite{Schulman2017} verwiesen.
 \medskip
 
 \underline{Umgebung:}
@@ -403,7 +403,7 @@ Nachfolgend ist eine verkürzte Initialisierung der Umgebung dargestellt.
 			self.state = np.array([random.uniform(self.x_min, self.x_max), random.uniform(self.y_min, self.y_max)] + [0.0] * dimension)	
 \end{lstlisting}
 
-Bei der Initialisierung der Umgebung muss der Bereich der möglichen Aktionen (\code{action\_space}) angegeben werden. Da mögliche Lösungen für ein nichtlineares Gleichungssystem sich im ganzen Raum $\mathbb{R}^n$ befinden können, bietet sich dieser auch für die möglichen Aktionen an. Jedoch ist es nicht möglich den ganzen Raum (von $-\infty$ bis $\infty$) anzugeben, sodass Grenzen gesetzt werden müssen. Diese sind im Code mit den Variablen \code{self.low\_bounds} und \code{self.high\_bounds} beschrieben. Hierbei zeichnet sich auch einer der Nachteile ab. Da bei den allermeisten nichtlinearen Gleichungssystemen von Beginn an nicht abzuschätzen ist, in welchem Teil des Lösungsraumes sich die Lösung(en) befindet/befinden, stellt die Wahl des Aktionsraumes auch eine Herausforderung dar. Ähnlich wie beim Newton-Raphson-Verfahren, bei dem ein initialer Startpunkt notwendig ist, der die Laufzeit des Verfahrens maßgeblich beeinflussen kann, so kann auch die Größe des Aktionsraumes die Laufzeit der Lösungsfindung maßgeblich beeinflussen.
+Bei der Initialisierung der Umgebung muss der Bereich der möglichen Aktionen (\code{action\_space}) angegeben werden. Da mögliche Lösungen für ein nichtlineares Gleichungssystem sich im ganzen Raum $\mathbb{R}^n$ befinden können, bietet sich dieser auch für die möglichen Aktionen an. Jedoch ist es nicht möglich den ganzen Raum (von $-\infty$ bis $\infty$) anzugeben, sodass Grenzen gesetzt werden müssen. Diese sind im Code mit den Variablen \code{self.low\_bounds} und \code{self.high\_bounds} beschrieben. Hierbei zeichnet sich auch einer der Nachteile ab. Da bei den allermeisten nichtlinearen Gleichungssystemen von Beginn an nicht abzuschätzen ist, in welchem Teil des Lösungsraumes sich die Lösung(en) befindet/befinden, stellt die Wahl des Aktionsraumes eine Herausforderung dar. Ähnlich wie beim Newton-Raphson-Verfahren, bei dem ein initialer Startpunkt notwendig ist, der die Laufzeit des Verfahrens maßgeblich beeinflussen kann, so kann auch die Größe des Aktionsraumes die Laufzeit der Lösungsfindung maßgeblich beeinflussen.
 \bigskip
 
 \underline{Berechnung des Residuums (Distanz):}
@@ -701,7 +701,7 @@ Für den Ansatz und für die gegebenen Problemstellungen haben sich folgende Erg
 	\centering
 	
 	\begin{tabular}{c||c|c|>{\centering\arraybackslash}p{2cm}|>{\centering\arraybackslash}p{3cm}|>{\centering\arraybackslash}p{2.5cm}}
-		\textbf{NSE} & \textbf{Steps} & \textbf{Time} (in s) & Startpunkt \textbf{$x_0$} & \textbf{Solution} & \textbf{Tolerance}  \\
+		\textbf{NSE} & \textbf{Steps} & \textbf{Time} (in s) & \textbf{Startpunkt} $\mathbf{x_0}$ & \textbf{Solution} & \textbf{Tolerance}  \\
 		\hline
 		\multirow{4}{*}{NSE 1 (\ref{nse:1})} & $5$ & $0.005$ & $5.0$ & $2.5777$ & $0.1919$\\
 		& $10$ & $0.007$ & $5.0$ & $2.4937$ & $7e-15$\\
@@ -732,7 +732,7 @@ Für den Ansatz und für die gegebenen Problemstellungen haben sich folgende Erg
 		%\caption{Darstellung der besten\\ gefundenen Residuen zum globalen\\ Optimum über die Zeit}
 		\label{fig:bestresiduum_globaloptimum_time_nse1-2}
 	\end{subfigure}
-	\caption{Darstellung der besten gefundenen Residuuen über die Zeit für alle Probleme und der besten Residuen zum globalen Optimum für NSE 1 \& NSE 2}
+	\caption{Darstellung der besten gefundenen Residuen über die Zeit für alle Probleme und der besten Residuen zum globalen Optimum für NSE 1 \& NSE 2}
 	\label{fig:zusammenstellung}
 \end{figure}
 
@@ -818,7 +818,7 @@ Abschließend ist anzumerken, dass neben den bereits diskutierten Parametern ein
 
 Zusätzlich zu den diskutierten Parametern beeinflussen eine Vielzahl weiterer Faktoren die Lösungsfindung und -qualität. Eine tiefere Analyse des Einflusses dieser Parameter in Bezug auf die spezifische Problemstellung ist daher von entscheidender Bedeutung.
 
-Diese Arbeit bietet somit Einblicke in die Möglichkeiten und Herausforderungen bei der Anwendung von Reinforcement Learning zur Lösung nichtlinearer Gleichungssysteme und legt den Grundstein für weitere Untersuchungen auf diesem Gebiet. 
+Diese Arbeit bietet somit Einblicke in die Möglichkeiten und Herausforderungen bei der Anwendung von Reinforcement-Learning zur Lösung nichtlinearer Gleichungssysteme und legt den Grundstein für weitere Untersuchungen auf diesem Gebiet. 
 
 
 \newpage
