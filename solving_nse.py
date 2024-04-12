@@ -148,7 +148,7 @@ class SaveActionsCallback(BaseCallback):
 
 
 class CustomEnv(gym.Env):
-    def __init__(self, dimension, improvement_rate_thr=0.95, scaling="exponential"):
+    def __init__(self, dimension, improvement_rate_thr=0.95, scaling="normal"):
         super(CustomEnv, self).__init__()
         self.x_min = -10.0
         self.x_max = 10.0
@@ -343,7 +343,7 @@ class CustomEnv(gym.Env):
                 return normal_res, normal_res
 
         elif self.scaling == "normal":
-            return normal_res, normal_res
+            return np.linalg.norm(values), np.linalg.norm(values)
 
     def _plot_res(self, dimension, plot_contour=False):
         num_points = 1000
@@ -520,14 +520,14 @@ class CustomEnv(gym.Env):
         # Reward if action is better than last action
         if len(self.distances) > 1 and residuum < self.distances[-2]:
             residuum_difference_reward = self.distances[-2] - residuum
-            dynamic_reward += residuum_difference_reward * (self.distances[-2] - residuum)
+            dynamic_reward += residuum_difference_reward
 
             self.best_action_so_far = action
 
         # penalty if action is worse than last action
         if len(self.best_actions) > 1 and residuum > self.best_distances[-2]:
             residuum_difference_penalty = residuum - self.distances[-2]
-            dynamic_penalty += residuum_difference_penalty * (residuum - self.distances[-2])
+            dynamic_penalty += residuum_difference_penalty
 
         reward += dynamic_reward
         reward -= dynamic_penalty
@@ -748,8 +748,9 @@ class CustomEnv(gym.Env):
             self.good_res_plot.append(self.distances[-1])
 
         # add points that are better than a given threshold just for plotting
-        if self.distances[-1] <= 1e-4:
+        if self.distances[-1] <= 1e-3:
             self.good_points_plot.append(action)
+            print(f"Good point: {action}\tResiduum: {self.distances[-1]}")
 
         self.state = action
 
@@ -1112,18 +1113,18 @@ def benchmark(epochs: list, dimension=1):
 
 
 if __name__ == '__main__':
-    epochs = 6e3
+    epochs = 6e4
     dimension = 1  # first and simplest nse
     # dimension = 2  # rosenbrock function
     # dimension = 10 # 10-dimensional nse (Economics Modeling Problem)
     model = "PPO"
     scaling = "logarithmic"
     # start from 0.1 to 0.95 with 0.05 steps
-    # normal_train_eval(epochs, dimension, model, verbose=True)
+    normal_train_eval(epochs, dimension, model, verbose=True)
 
     # for i in tqdm(range(5)):
     #     normal_train_eval(epochs, dimension, model)
     # print("---" * 100)
-    benchmark([1e3, 5e3, 1e4, 5e4], dimension=dimension)
+    # benchmark([1e3, 5e3, 1e4, 5e4], dimension=dimension)
 
     # plot reward action map
