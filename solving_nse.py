@@ -38,7 +38,7 @@ def plot_nse(equations, x_array, dimension=1, contour_plot=False, points=None, p
         eq1 = equations[0]
         y_values = [eq1(x) for x in points]
 
-        eqs_names = ["x^5 - 3x^4 + x^3 + 0.5x^2", "sin(2x)"]
+        eqs_names = ["x^5 - 3x^4 + x^3 + 0.5x^2 - sin(2x)"]
 
         for idx, eq in enumerate(equations):
             y = eq(x_array)
@@ -56,6 +56,9 @@ def plot_nse(equations, x_array, dimension=1, contour_plot=False, points=None, p
         axs[0].set_title("NSE 1 with solutions")
         axs[0].set_xlabel('x')
         axs[0].set_ylabel('y')
+        # x axis at 0
+        axs[0].axhline(0, color='black', lw=0.5)
+
         axs[0].legend()
         axs[0].grid()
         axs[0].set_ylim(-3.0, 3.0)
@@ -181,6 +184,7 @@ class CustomEnv(gym.Env):
         self.good_res_plot = []
         self.best_action_so_far = None
         self.good_points_thrs = 0.01
+        self.good_points_thrs_list = []
         self.episode = 0
         self.rewards = []
         self.reward_action_map = []
@@ -239,8 +243,9 @@ class CustomEnv(gym.Env):
         if self.dimension == 1:
             eq1 = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2
             eq2 = lambda x: np.sin(2 * x)
+            eq_r = lambda x: x ** 5 - 3 * x ** 4 + x ** 3 + 0.5 * x ** 2 - np.sin(2 * x)
             self.global_optimum = [-0.6998397867, 0.0, 2.4936955491]
-            return np.array([eq1, eq2])
+            return np.array([eq_r])
 
         elif self.dimension == 2:
             # rosenbrock function
@@ -282,33 +287,28 @@ class CustomEnv(gym.Env):
 
         # Calculate the function values for all equations
         values = np.array([eq(point) for eq in equations])
+        residuum = np.sqrt(sum(values ** 2))
 
         # calculate normal residuum
         normal_res = sum((values[i] - values[j]) ** 2 for i in range(len(values)) for j in range(i + 1, len(values)))
-        self.all_residuals.append(normal_res)
+        self.all_residuals.append(residuum)
 
         if self.scaling == "minmax":
             if len(self.all_residuals) > 1:
                 min_values = np.min(self.all_residuals, axis=0)
                 max_values = np.max(self.all_residuals, axis=0)
-                scaled_values = (values - min_values) / (max_values - min_values)
-                res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
-                          range(i + 1, len(scaled_values)))
-                return res, normal_res
+                scaled_residuum = (residuum - min_values) / (max_values - min_values)
+                return scaled_residuum, residuum
             else:
-                return normal_res, normal_res
+                return residuum, residuum
 
         elif self.scaling == "logarithmic":
-            scaled_values = np.log1p(np.abs(values)) / np.log(10)
-            res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
-                      range(i + 1, len(scaled_values)))
-            return res, normal_res
+            scaled_residuum = np.log(residuum + 1e-8)
+            return -scaled_residuum, -scaled_residuum
 
         elif self.scaling == "exponential":
-            scaled_values = np.exp(-np.abs(values) / 100)
-            res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
-                      range(i + 1, len(scaled_values)))
-            return res, normal_res
+            scaled_residuum = np.exp(0.05*(-residuum)**2)
+            return scaled_residuum, residuum
 
         elif self.scaling == "gradient":
             # scale values with square of gradient
@@ -326,10 +326,9 @@ class CustomEnv(gym.Env):
                 return res, normal_res
 
         elif self.scaling == "sigmoid":
-            scaled_values = 1 / (1 + np.exp(-values))
-            res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
-                      range(i + 1, len(scaled_values)))
-            return res, normal_res
+            # sigmoid scaling
+            scaled_residuum = 1 / (1 + np.exp(-residuum))
+            return scaled_residuum, residuum
 
         elif self.scaling == "zscore":
             if len(self.all_residuals) > 1:
@@ -343,7 +342,8 @@ class CustomEnv(gym.Env):
                 return normal_res, normal_res
 
         elif self.scaling == "normal":
-            return np.linalg.norm(values), np.linalg.norm(values)
+            residuum = np.sqrt(sum(values ** 2))
+            return residuum, residuum
 
     def _plot_res(self, dimension, plot_contour=False):
         num_points = 1000
@@ -500,6 +500,30 @@ class CustomEnv(gym.Env):
         reward = reward_term + normalization_term + gradient_term
 
         return reward
+
+    def reward_penalty_simple(self, residuum):
+        """
+        Reward function that penalizes high residuum values and rewards low residuum values.
+        :param residuum:
+        :param reward:
+        :return:
+        """
+        done = False
+        truncated = False
+        reward = -residuum
+        if len(self.rewards) > 100:
+            self.rewards.pop(0)
+        mean_reward = np.mean(self.rewards)
+        std_reward = np.std(self.rewards) if np.std(self.rewards) > 0 else 1
+        normalized_reward = (reward - mean_reward) / std_reward
+
+        if residuum < self.good_points_thrs:
+            self.good_points_thrs *= 0.8
+            done = True
+        else:
+            normalized_reward -= 0.5
+
+        return normalized_reward, done, truncated
 
     def dynamic_reward_penalty(self, action, residuum, reward):
         dynamic_reward = 0.0
@@ -729,11 +753,15 @@ class CustomEnv(gym.Env):
         :return: state, reward, done, info
         """
 
+        done = False
+        truncated = False
+
         self.actions.append(action)
         residuum, normal_residuum = self.get_distance_discrete(action)
         self.distances.append(normal_residuum)
         self.action_precision[tuple(action)] = normal_residuum
         self.time_action.append((time.time() - self.start_time, action))
+        self.time_residuum.append((time.time() - self.start_time, normal_residuum))
 
         # just print better action
         if self.distances[-1] <= min(self.distances):
@@ -748,7 +776,7 @@ class CustomEnv(gym.Env):
             self.good_res_plot.append(self.distances[-1])
 
         # add points that are better than a given threshold just for plotting
-        if self.distances[-1] <= 1e-3:
+        if self.distances[-1] <= 1e-4:
             self.good_points_plot.append(action)
             print(f"Good point: {action}\tResiduum: {self.distances[-1]}")
 
@@ -760,7 +788,48 @@ class CustomEnv(gym.Env):
         self.min_residuum = min(self.min_residuum, normal_residuum)
         self.max_residuum = max(self.max_residuum, normal_residuum)
 
-        reward = -residuum
+        # negative residuum reward
+        reward = -normal_residuum
+
+        # exponential reward
+        # reward = -np.exp(0.1 * residuum)
+        # reward = max(reward, -10)
+
+        # logarithmic reward
+        # reward = -np.log(residuum + 1e-8)
+
+        # inverse scaling
+        # reward = np.exp(0.05*(-residuum**2)) + 1
+
+        # Dynamic threshold adjustment
+        if residuum < self.good_points_thrs:
+            # Scale down the threshold by a factor that decreases as performance improves
+            threshold_adjustment_factor = 0.95 + 0.05 * (residuum / self.good_points_thrs)
+            self.good_points_thrs *= threshold_adjustment_factor[0 ]
+            reward += 1  # Bonus for surpassing the threshold
+            done = True
+        else:
+            # Proportional penalty to how far away the residuum is from the threshold
+            penalty_factor = (residuum / self.good_points_thrs) - 1
+            reward -= penalty_factor
+
+        done = residuum < 1e-6
+
+        if done:
+            self.episode += 1
+            truncated = True
+
+        # squared scaling
+        # reward = -residuum ** 2
+
+        # square root scaling
+        # reward = -np.sqrt(residuum)
+
+        # log dynamic reward
+        # epsilon = 1e-8  # To avoid log(0)
+        # base = np.e + min(residuum, 10)  # Adjusting base from e to e+10 based on residuum size
+        # reward = -np.log(residuum + epsilon) / np.log(base)
+
         self.time_reward.append((time.time() - self.start_time, reward))
         # print(f"Residuum: {residuum}\tReward: {reward}")
         # if residuum == 0:
@@ -775,7 +844,8 @@ class CustomEnv(gym.Env):
 
         # reward shaping
         # reward, done, truncated = self.dynamic_reward_penalty_gradient_scale(action, residuum, normal_residuum, reward)
-        reward, done, truncated = self.dynamic_reward_penalty(action, residuum, reward)
+        # reward, done, truncated = self.reward_penalty_simple(residuum)
+        self.good_points_thrs_list.append(self.good_points_thrs)
 
         if done:
             self.episode += 1
@@ -932,6 +1002,17 @@ def normal_train_eval(epochs: float, dimension: int, model: str, verbose: bool =
                      points=env.good_points_plot,
                      points_x=None, distances=env.best_distances)
 
+            # plot thresholds
+            if len(env.good_points_thrs_list) > 0:
+                x_thrs = np.arange(0, len(env.good_points_thrs_list))
+                plt.plot(x_thrs, env.good_points_thrs_list, marker="o", markersize=3, label="Thresholds")
+                plt.legend()
+                plt.grid()
+                plt.ylabel("Threshold")
+                plt.xlabel("Epoch")
+                plt.show()
+
+
         if dimension == 2:
             print(f"Len of good points plot: {len(env.good_points_plot)}")
             plot_nse(env.nse(), np.linspace(-5, 5, 100), dimension=dimension, contour_plot=True,
@@ -942,25 +1023,25 @@ def normal_train_eval(epochs: float, dimension: int, model: str, verbose: bool =
         time_residuum_map = env.time_residuum
         time_action_map = env.time_action
         if dimension == 1:
-            fig, axs = plt.subplots(2, 1, figsize=(15, 9))
-            times_residuum = [time for time, residuum in time_residuum_map]
-            residuums = [residuum for time, residuum in time_residuum_map]
-            times_action = [time for time, action in time_action_map]
-            actions = [action for time, action in time_action_map]
-
-            axs[0].plot(times_residuum, residuums, label=f"Residuum for NSE 1")
-            axs[0].set_title("Residuum over time for NSE 1")
-            axs[0].set_xlabel("Time (in s)")
-            axs[0].set_ylabel("Residuum")
-            axs[0].grid()
-
-            # scale logarithmic
-            axs[0].set_yscale('log')
-
-            axs[1].plot(times_action, actions)
-            axs[1].set_title("Time Action")
-            axs[1].set_xlabel("Time")
-            axs[1].set_ylabel("Action")
+            # fig, axs = plt.subplots(2, 1, figsize=(15, 9))
+            # times_residuum = [time for time, residuum in time_residuum_map]
+            # residuums = [residuum for time, residuum in time_residuum_map]
+            # times_action = [time for time, action in time_action_map]
+            # actions = [action for time, action in time_action_map]
+            #
+            # axs[0].plot(times_residuum, residuums, label=f"Residuum for NSE 1")
+            # axs[0].set_title("Residuum over time for NSE 1")
+            # axs[0].set_xlabel("Time (in s)")
+            # axs[0].set_ylabel("Residuum")
+            # axs[0].grid()
+            #
+            # # scale logarithmic
+            # axs[0].set_yscale('log')
+            #
+            # axs[1].plot(times_action, actions)
+            # axs[1].set_title("Time Action")
+            # axs[1].set_xlabel("Time")
+            # axs[1].set_ylabel("Action")
 
             plt.show()
 
@@ -980,7 +1061,7 @@ def normal_train_eval(epochs: float, dimension: int, model: str, verbose: bool =
 
             plt.xlabel('Action')
             plt.ylabel('Reward')
-            plt.ylim(-1, 1)
+            # plt.ylim(-1, 1)
             plt.xlim(-5, 5)
             plt.title('Reward Action Mapping')
             plt.grid()
@@ -1113,14 +1194,14 @@ def benchmark(epochs: list, dimension=1):
 
 
 if __name__ == '__main__':
-    epochs = 6e4
+    epochs = 8e3
     dimension = 1  # first and simplest nse
     # dimension = 2  # rosenbrock function
     # dimension = 10 # 10-dimensional nse (Economics Modeling Problem)
     model = "PPO"
-    scaling = "logarithmic"
+    scaling = "exponential"
     # start from 0.1 to 0.95 with 0.05 steps
-    normal_train_eval(epochs, dimension, model, verbose=True)
+    normal_train_eval(epochs, dimension, model, verbose=True, scaling=scaling)
 
     # for i in tqdm(range(5)):
     #     normal_train_eval(epochs, dimension, model)
