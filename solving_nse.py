@@ -304,10 +304,10 @@ class CustomEnv(gym.Env):
 
         elif self.scaling == "logarithmic":
             scaled_residuum = np.log(residuum + 1e-8)
-            return -scaled_residuum, -scaled_residuum
+            return scaled_residuum, -scaled_residuum
 
         elif self.scaling == "exponential":
-            scaled_residuum = np.exp(0.05*(-residuum)**2)
+            scaled_residuum = np.exp(-0.5 * (residuum) ** 2)
             return scaled_residuum, residuum
 
         elif self.scaling == "gradient":
@@ -342,7 +342,6 @@ class CustomEnv(gym.Env):
                 return normal_res, normal_res
 
         elif self.scaling == "normal":
-            residuum = np.sqrt(sum(values ** 2))
             return residuum, residuum
 
     def _plot_res(self, dimension, plot_contour=False):
@@ -776,7 +775,7 @@ class CustomEnv(gym.Env):
             self.good_res_plot.append(self.distances[-1])
 
         # add points that are better than a given threshold just for plotting
-        if self.distances[-1] <= 1e-4:
+        if self.distances[-1] <= 1e-3:
             self.good_points_plot.append(action)
             print(f"Good point: {action}\tResiduum: {self.distances[-1]}")
 
@@ -805,7 +804,11 @@ class CustomEnv(gym.Env):
         if residuum < self.good_points_thrs:
             # Scale down the threshold by a factor that decreases as performance improves
             threshold_adjustment_factor = 0.95 + 0.05 * (residuum / self.good_points_thrs)
-            self.good_points_thrs *= threshold_adjustment_factor[0 ]
+            if type(threshold_adjustment_factor) == np.ndarray:
+                threshold_adjustment_factor = threshold_adjustment_factor[0]
+            else:
+                threshold_adjustment_factor = threshold_adjustment_factor
+            self.good_points_thrs *= threshold_adjustment_factor
             reward += 1  # Bonus for surpassing the threshold
             done = True
         else:
@@ -845,6 +848,7 @@ class CustomEnv(gym.Env):
         # reward shaping
         # reward, done, truncated = self.dynamic_reward_penalty_gradient_scale(action, residuum, normal_residuum, reward)
         # reward, done, truncated = self.reward_penalty_simple(residuum)
+        reward, done, truncated = self.dynamic_reward_penalty(action, residuum, reward)
         self.good_points_thrs_list.append(self.good_points_thrs)
 
         if done:
@@ -1003,15 +1007,14 @@ def normal_train_eval(epochs: float, dimension: int, model: str, verbose: bool =
                      points_x=None, distances=env.best_distances)
 
             # plot thresholds
-            if len(env.good_points_thrs_list) > 0:
-                x_thrs = np.arange(0, len(env.good_points_thrs_list))
-                plt.plot(x_thrs, env.good_points_thrs_list, marker="o", markersize=3, label="Thresholds")
-                plt.legend()
-                plt.grid()
-                plt.ylabel("Threshold")
-                plt.xlabel("Epoch")
-                plt.show()
-
+            # if len(env.good_points_thrs_list) > 0:
+            #     x_thrs = np.arange(0, len(env.good_points_thrs_list))
+            #     plt.plot(x_thrs, env.good_points_thrs_list, marker="o", markersize=3, label="Thresholds")
+            #     plt.legend()
+            #     plt.grid()
+            #     plt.ylabel("Threshold")
+            #     plt.xlabel("Epoch")
+            #     plt.show()
 
         if dimension == 2:
             print(f"Len of good points plot: {len(env.good_points_plot)}")
@@ -1086,17 +1089,17 @@ def normal_train_eval(epochs: float, dimension: int, model: str, verbose: bool =
             # plt.show()
 
 
-        elif dimension == 2:
-            times_residuum = [time for time, residuum in time_residuum_map]
-            residuums = [residuum for time, residuum in time_residuum_map]
-
-            plt.plot(times_residuum, residuums, label="Residuum for NSE 2")
-            plt.title("Residuum over time for NSE 2")
-            plt.xlabel("Time (in s)")
-            plt.ylabel("Residuum")
-            plt.grid()
-            plt.yscale('log')
-            plt.show()
+        # elif dimension == 2:
+        #     times_residuum = [time for time, residuum in time_residuum_map]
+        #     residuums = [residuum for time, residuum in time_residuum_map]
+        #
+        #     plt.plot(times_residuum, residuums, label="Residuum for NSE 2")
+        #     plt.title("Residuum over time for NSE 2")
+        #     plt.xlabel("Time (in s)")
+        #     plt.ylabel("Residuum")
+        #     plt.grid()
+        #     plt.yscale('log')
+        #     plt.show()
 
         elif dimension > 2:
             times_residuum = [time for time, residuum in time_residuum_map]
@@ -1195,11 +1198,11 @@ def benchmark(epochs: list, dimension=1):
 
 if __name__ == '__main__':
     epochs = 8e3
-    dimension = 1  # first and simplest nse
+    dimension = 2  # first and simplest nse
     # dimension = 2  # rosenbrock function
     # dimension = 10 # 10-dimensional nse (Economics Modeling Problem)
     model = "PPO"
-    scaling = "exponential"
+    scaling = "normal"
     # start from 0.1 to 0.95 with 0.05 steps
     normal_train_eval(epochs, dimension, model, verbose=True, scaling=scaling)
 
