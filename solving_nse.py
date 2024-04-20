@@ -8,7 +8,7 @@ import time
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, DDPG, TD3, SAC
 import os
-import numdifftools as nd
+# import numdifftools as nd
 from stable_baselines3.common import results_plotter
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 import torch
 
-np.random.seed(41)
+# np.random.seed(41)
 
 print(f"CUDA: ", torch.cuda.is_available())
 
@@ -288,6 +288,8 @@ class CustomEnv(gym.Env):
         # Calculate the function values for all equations
         values = np.array([eq(point) for eq in equations])
         residuum = np.sqrt(sum(values ** 2))
+        if residuum < 0:
+            print(point, residuum)
 
         # calculate normal residuum
         normal_res = sum((values[i] - values[j]) ** 2 for i in range(len(values)) for j in range(i + 1, len(values)))
@@ -342,7 +344,7 @@ class CustomEnv(gym.Env):
                 return normal_res, normal_res
 
         elif self.scaling == "normal":
-            return residuum, residuum
+            return 100/(residuum+1), residuum
 
     def _plot_res(self, dimension, plot_contour=False):
         num_points = 1000
@@ -509,20 +511,17 @@ class CustomEnv(gym.Env):
         """
         done = False
         truncated = False
-        reward = -residuum
+        reward = residuum
         if len(self.rewards) > 100:
             self.rewards.pop(0)
-        mean_reward = np.mean(self.rewards)
-        std_reward = np.std(self.rewards) if np.std(self.rewards) > 0 else 1
-        normalized_reward = (reward - mean_reward) / std_reward
 
         if residuum < self.good_points_thrs:
             self.good_points_thrs *= 0.8
             done = True
         else:
-            normalized_reward -= 0.5
+            reward -= 0.5
 
-        return normalized_reward, done, truncated
+        return reward, done, truncated
 
     def dynamic_reward_penalty(self, action, residuum, reward):
         dynamic_reward = 0.0
@@ -788,7 +787,7 @@ class CustomEnv(gym.Env):
         self.max_residuum = max(self.max_residuum, normal_residuum)
 
         # negative residuum reward
-        reward = -normal_residuum
+        reward = residuum
 
         # exponential reward
         # reward = -np.exp(0.1 * residuum)
@@ -801,22 +800,22 @@ class CustomEnv(gym.Env):
         # reward = np.exp(0.05*(-residuum**2)) + 1
 
         # Dynamic threshold adjustment
-        if residuum < self.good_points_thrs:
-            # Scale down the threshold by a factor that decreases as performance improves
-            threshold_adjustment_factor = 0.95 + 0.05 * (residuum / self.good_points_thrs)
-            if type(threshold_adjustment_factor) == np.ndarray:
-                threshold_adjustment_factor = threshold_adjustment_factor[0]
-            else:
-                threshold_adjustment_factor = threshold_adjustment_factor
-            self.good_points_thrs *= threshold_adjustment_factor
-            reward += 1  # Bonus for surpassing the threshold
-            done = True
-        else:
-            # Proportional penalty to how far away the residuum is from the threshold
-            penalty_factor = (residuum / self.good_points_thrs) - 1
-            reward -= penalty_factor
+        # if normal_residuum < self.good_points_thrs:
+        #     # Scale down the threshold by a factor that decreases as performance improves
+        #     threshold_adjustment_factor = 0.95 + 0.05 * (residuum / self.good_points_thrs)
+        #     if type(threshold_adjustment_factor) == np.ndarray:
+        #         threshold_adjustment_factor = threshold_adjustment_factor[0]
+        #     else:
+        #         threshold_adjustment_factor = threshold_adjustment_factor
+        #     self.good_points_thrs *= threshold_adjustment_factor
+        #     reward += 1  # Bonus for surpassing the threshold
+        #     done = True
+        # else:
+        #     # Proportional penalty to how far away the residuum is from the threshold
+        #     penalty_factor = (residuum / self.good_points_thrs)
+        #     reward -= penalty_factor
 
-        done = residuum < 1e-6
+        done = normal_residuum < 1e-6
 
         if done:
             self.episode += 1
@@ -848,7 +847,7 @@ class CustomEnv(gym.Env):
         # reward shaping
         # reward, done, truncated = self.dynamic_reward_penalty_gradient_scale(action, residuum, normal_residuum, reward)
         # reward, done, truncated = self.reward_penalty_simple(residuum)
-        reward, done, truncated = self.dynamic_reward_penalty(action, residuum, reward)
+        # reward, done, truncated = self.dynamic_reward_penalty(action, residuum, reward)
         self.good_points_thrs_list.append(self.good_points_thrs)
 
         if done:
@@ -1198,7 +1197,7 @@ def benchmark(epochs: list, dimension=1):
 
 if __name__ == '__main__':
     epochs = 8e3
-    dimension = 2  # first and simplest nse
+    dimension = 1  # first and simplest nse
     # dimension = 2  # rosenbrock function
     # dimension = 10 # 10-dimensional nse (Economics Modeling Problem)
     model = "PPO"
