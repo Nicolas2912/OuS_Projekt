@@ -3,7 +3,8 @@ import random
 import math
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
+import scipy.special as sp
+
 import time
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO, DDPG, TD3, SAC
@@ -158,6 +159,11 @@ class CustomEnv(gym.Env):
         self.y_min = -5.0
         self.y_max = 5.0
 
+        self.global_min, self.global_max = -5.0, 5.0
+        self.local_min, self.local_max = self.global_min, self.global_max
+        self.narrowing_factor = 0.9
+        self.expansion_factor = 1.1
+
         self.dimension = dimension
         self.low_bounds = -5.0 * np.ones(dimension)
         self.high_bounds = 5.0 * np.ones(dimension)
@@ -165,7 +171,7 @@ class CustomEnv(gym.Env):
                                            high=self.high_bounds,
                                            dtype=np.float64)
 
-        self.observation_space = gym.spaces.Box(low=-np.infty, high=np.infty, shape=(dimension,))
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(dimension,), dtype=np.float64)
 
         self.state = np.array(
             [random.uniform(self.x_min, self.x_max),
@@ -209,6 +215,7 @@ class CustomEnv(gym.Env):
         self.max_residuum = float('-inf')
 
         self.best_residuum = float('inf')
+        self.last_residuum = float('inf')
         self.low_residuum_threshold = 1e-6
         self.small_step_reward_factor = 0.25
 
@@ -288,8 +295,6 @@ class CustomEnv(gym.Env):
         # Calculate the function values for all equations
         values = np.array([eq(point) for eq in equations])
         residuum = np.sqrt(sum(values ** 2))
-        if residuum < 0:
-            print(point, residuum)
 
         # calculate normal residuum
         normal_res = sum((values[i] - values[j]) ** 2 for i in range(len(values)) for j in range(i + 1, len(values)))
@@ -344,7 +349,15 @@ class CustomEnv(gym.Env):
                 return normal_res, normal_res
 
         elif self.scaling == "normal":
-            return 100/(residuum+1), residuum
+            inv = 1 / (residuum + 1)
+            # gaussian = np.exp(-((residuum**2) / (1)))
+            # cosine = np.cos(min(residuum, np.pi / 2))
+            # log = -np.log(residuum + 1)**2+1
+            # square_root = 1/(np.sqrt(residuum + 1e-8))
+            tanh = -np.tanh(residuum ** 2) + 1
+            test = -1 / (residuum + 1) * np.tanh(residuum ** 2) + 1 * np.exp(-residuum ** 2)
+            # erf = sp.erf(1/(residuum + 1))
+            return inv, residuum
 
     def _plot_res(self, dimension, plot_contour=False):
         num_points = 1000
@@ -750,7 +763,6 @@ class CustomEnv(gym.Env):
         :param action: Action to take.
         :return: state, reward, done, info
         """
-
         done = False
         truncated = False
 
@@ -761,6 +773,9 @@ class CustomEnv(gym.Env):
         self.time_action.append((time.time() - self.start_time, action))
         self.time_residuum.append((time.time() - self.start_time, normal_residuum))
 
+        improvement = normal_residuum - self.last_residuum
+        self.last_residuum = normal_residuum
+
         # just print better action
         if self.distances[-1] <= min(self.distances):
             print("Best action:", self.actions[-1], "\t", "Residuum:", self.distances[-1], "\t", "Episode:",
@@ -768,69 +783,60 @@ class CustomEnv(gym.Env):
             # print()
             self.best_actions.append(action)
             self.best_distances.append(self.distances[-1])
+            self.best_residuum = residuum
+            self.local_min = max(self.global_min, action - self.narrowing_factor)
+            self.local_max = min(self.global_max, action + self.narrowing_factor)
+
+            # print(f"Action space: {self.local_min} - {self.local_max}")
+
+        # self.action_space = gym.spaces.Box(low=np.array([self.local_min]), high=np.array([self.local_max]), dtype=np.float64)
 
         if self.distances[-1] <= self.good_points_thrs and len(self.good_points) > 0:
             # print(f"Good point: {self.good_points[-1]}\tResiduum: {self.distances[-1]}")
             self.good_res_plot.append(self.distances[-1])
 
         # add points that are better than a given threshold just for plotting
-        if self.distances[-1] <= 1e-3:
+        if self.distances[-1] <= 0.001:
             self.good_points_plot.append(action)
-            print(f"Good point: {action}\tResiduum: {self.distances[-1]}")
+            # print(f"Good point: {action}\tResiduum: {self.distances[-1]}")
 
         self.state = action
 
-        if normal_residuum < self.best_residuum:
-            self.best_residuum = normal_residuum
+        # if normal_residuum < self.best_residuum:
+        #     self.best_residuum = normal_residuum
 
         self.min_residuum = min(self.min_residuum, normal_residuum)
         self.max_residuum = max(self.max_residuum, normal_residuum)
 
-        # negative residuum reward
+        # reward = 1/(residuum + 1)
         reward = residuum
 
-        # exponential reward
-        # reward = -np.exp(0.1 * residuum)
-        # reward = max(reward, -10)
+        # --- standard way ---
 
-        # logarithmic reward
-        # reward = -np.log(residuum + 1e-8)
+        if normal_residuum < self.best_residuum:
+            self.best_residuum = normal_residuum
+            self.best_action_so_far = action
+            reward += 1.0
+        else:
+            reward -= 0.1
 
-        # inverse scaling
-        # reward = np.exp(0.05*(-residuum**2)) + 1
+        if improvement < 0:
+            reward += 0.1
+        else:
+            reward -= 0.1
 
-        # Dynamic threshold adjustment
-        # if normal_residuum < self.good_points_thrs:
-        #     # Scale down the threshold by a factor that decreases as performance improves
-        #     threshold_adjustment_factor = 0.95 + 0.05 * (residuum / self.good_points_thrs)
-        #     if type(threshold_adjustment_factor) == np.ndarray:
-        #         threshold_adjustment_factor = threshold_adjustment_factor[0]
-        #     else:
-        #         threshold_adjustment_factor = threshold_adjustment_factor
-        #     self.good_points_thrs *= threshold_adjustment_factor
-        #     reward += 1  # Bonus for surpassing the threshold
-        #     done = True
-        # else:
-        #     # Proportional penalty to how far away the residuum is from the threshold
-        #     penalty_factor = (residuum / self.good_points_thrs)
-        #     reward -= penalty_factor
+        if normal_residuum < self.good_points_thrs:
+            reward += 0.05  # Simple reward for being below threshold
+            self.good_points_thrs *= 0.95  # Adjust threshold
+            self.consecutive_no_improvement = 0
+        else:
+            reward -= 0.01
+            self.consecutive_no_improvement += 1
+            if self.consecutive_no_improvement >= 50:
+                done = True
+                reward -= 0.02
 
-        done = normal_residuum < 1e-6
-
-        if done:
-            self.episode += 1
-            truncated = True
-
-        # squared scaling
-        # reward = -residuum ** 2
-
-        # square root scaling
-        # reward = -np.sqrt(residuum)
-
-        # log dynamic reward
-        # epsilon = 1e-8  # To avoid log(0)
-        # base = np.e + min(residuum, 10)  # Adjusting base from e to e+10 based on residuum size
-        # reward = -np.log(residuum + epsilon) / np.log(base)
+        # --- standard way ---
 
         self.time_reward.append((time.time() - self.start_time, reward))
         # print(f"Residuum: {residuum}\tReward: {reward}")
@@ -939,6 +945,15 @@ class CustomEnv(gym.Env):
         else:
             self.state = np.random.uniform(low=self.x_min, high=self.x_max, size=self.dimension)
             return self.state, {}
+            # if self.best_action_so_far is not None:
+            #     if self.local_max - self.local_min > (self.global_max - self.global_min) * 0.5:
+            #         self.local_min, self.local_max = self.global_min, self.global_max
+            #         self.state = np.random.uniform(self.local_min, self.local_max, size=self.dimension)
+            #     return self.state, {}
+            # else:
+            #     self.state = np.random.uniform(low=self.x_min, high=self.x_max, size=self.dimension)
+            #     # print(f"Random new state: {self.state}")
+            #     return self.state, {}
 
 
 def learning_rate_func(progress_remaining: float) -> float:
@@ -946,8 +961,8 @@ def learning_rate_func(progress_remaining: float) -> float:
     This function takes the remaining progress (from 1 to 0) and returns the learning rate.
     You can modify this function to implement your own learning rate schedule.
     """
-    start_lr = 0.001  # Starting learning rate
-    end_lr = 0.0001  # Final learning rate
+    start_lr = 0.01  # Starting learning rate
+    end_lr = 0.000001  # Final learning rate
     lr = start_lr * progress_remaining + end_lr * (1 - progress_remaining)
     return lr
 
@@ -971,7 +986,7 @@ def normal_train_eval(epochs: float, dimension: int, model: str, verbose: bool =
 
     # action noise
     n_actions = env.action_space.shape[-1]
-    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.75 * np.ones(n_actions))
+    action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.7 * np.ones(n_actions))
 
     # Create model
     if model == "DDPG":
@@ -981,9 +996,8 @@ def normal_train_eval(epochs: float, dimension: int, model: str, verbose: bool =
         model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
                     learning_starts=1000)
     elif model == "PPO":
-        model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.75,
-                    learning_rate=learning_rate_func,
-                    vf_coef=0.75)
+        model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.5, learning_rate=0.0001,
+                    vf_coef=0.5)
 
     if verbose:
         logger.info("Model created")
@@ -1006,14 +1020,22 @@ def normal_train_eval(epochs: float, dimension: int, model: str, verbose: bool =
                      points_x=None, distances=env.best_distances)
 
             # plot thresholds
-            # if len(env.good_points_thrs_list) > 0:
-            #     x_thrs = np.arange(0, len(env.good_points_thrs_list))
-            #     plt.plot(x_thrs, env.good_points_thrs_list, marker="o", markersize=3, label="Thresholds")
-            #     plt.legend()
-            #     plt.grid()
-            #     plt.ylabel("Threshold")
-            #     plt.xlabel("Epoch")
-            #     plt.show()
+            if len(env.good_points_thrs_list) > 0:
+                x_thrs = np.arange(0, len(env.good_points_thrs_list))
+                plt.plot(x_thrs, env.good_points_thrs_list, marker="o", markersize=2, label="Thresholds")
+                plt.legend()
+                plt.grid()
+                plt.ylabel("Threshold")
+                plt.xlabel("Epoch")
+                plt.title("Threshold over Epoch")
+                plt.show()
+
+            # plot improvementrate history
+            plt.plot(env.improvement_rate_history)
+            plt.grid()
+            plt.ylabel("Improvement Rate")
+            plt.xlabel("Epoch")
+            plt.show()
 
         if dimension == 2:
             print(f"Len of good points plot: {len(env.good_points_plot)}")
@@ -1150,9 +1172,7 @@ def benchmark(epochs: list, dimension=1):
 
         # model = SAC("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, train_freq=1, action_noise=action_noise,
         #             learning_starts=1000)
-        model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.75,
-                    learning_rate=learning_rate_func,
-                    vf_coef=0.75)
+        model = PPO("MlpPolicy", env, verbose=0, tensorboard_log=log_dir, ent_coef=0.5, vf_coef=0.5)
         # logger.info(f"Model created; Epochs: {epoch}")
 
         # logger.info("Start training")
