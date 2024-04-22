@@ -326,7 +326,7 @@ Für die oben genannten Fragen wurden folgende erste Lösungsansätze entwickelt
 \underline{Umgebung:}
 \smallskip
 
-Im Kontext dieses Projekts wird die Umgebung als der Raum betrachtet, in dem sich die Gleichungen befinden. Ein besonderes Merkmal dabei ist, dass die Umgebung als statisch betrachtet werden kann, sofern sich die Gleichungen und damit einhergehend auch die Lösungen während des Lösungsprozesses nicht ändern.
+Im Rahmen dieses Projekts wird die Umgebung als der Raum definiert, in dem die Gleichungen existieren. Ein wesentliches Kennzeichen ist, dass die Umgebung als statisch angesehen wird, solange die Gleichungen und dementsprechend auch die Lösungen während des Lösungsvorgangs unverändert bleiben.
 \\
 
 \underline{Zustand:}
@@ -338,7 +338,7 @@ Der Zustand wird aufgefasst, als die gewählte Aktion.
 \underline{Aktion:}
 \smallskip
 
-Abhängig von der Dimensionalität des Problems kann der Agent aus einem kontinuierlichen Raum von Punkten wählen. Der Agent wählt eine Aktion $a \in \mathcal{A}$, wobei $\mathcal{A} \subseteq \mathbb{R}^{n-1}$ und $n$ die Dimensionalität des Problems widerspiegelt.
+Abhängig von der Dimensionalität des Problems kann der Agent aus einem kontinuierlichen Raum von Punkten wählen. Der Agent wählt eine Aktion $a \in \mathcal{A}$, wobei $\mathcal{A} \subseteq \mathbb{R}^{n}$ und $n$ die Dimensionalität des Problems widerspiegelt.
 \\
  
 \underline{Belohnungsfunktion:}
@@ -347,17 +347,25 @@ Abhängig von der Dimensionalität des Problems kann der Agent aus einem kontinu
 Die Formulierung der Belohnungsfunktion konzentriert sich darauf, die Lösung(en) des Gleichungssystems zu finden, sofern sie denn existieren. In dieser Arbeit wird das Residuum verwendet, welches den Fehler zur eigentlichen Lösung darstellt. Das Residuum $R$ an der Optimallösung $\mathbf{x}^{\ast}$ ist $\mathbf{0}$, sodass das Ziel dabei ist diesen Fehler zu minimieren. 
 
 \begin{definition}[Residuum]
-	Gegeben seien $n$ nichtlineare Gleichungen mit $\mathbb{R}^n \rightarrow \mathbb{R}^n$. Es sei vorausgesetzt, dass mindestens eine Lösung $\mathbf{x}^{\ast}$ existiert, die das Gleichungssystem löst. Dann ist das Residuum an der Stelle $\mathbf{x}$ mit $\mathbf{x} \in \mathbb{R}^n$ definiert als
+	Gegeben seien $n$ nichtlineare Gleichungen ($f_1(\mathbf{x}), f_2(\mathbf{x}), \dots, f_n(\mathbf{x})$) mit $\mathbb{R}^n \rightarrow \mathbb{R}^n$ gegeben. Es sei vorausgesetzt, dass mindestens eine Lösung $\mathbf{x}^{\ast}$ existiert, die das Gleichungssystem löst. Dann ist das Residuum $R \in \mathbb{R}^{\geq 0}$ an der Stelle $\mathbf{x}$ mit $\mathbf{x} \in \mathbb{R}^n$ definiert als
 	
 	\begin{equation}
-		R(\mathbf{x}) = \sum\limits (f_i(\mathbf{x}) - f_j(\mathbf{x}))^2 \quad \forall 1 \leq i < j \leq n.
+		R(\mathbf{x}) = ||\mathbf{f}(\mathbf{x})||_2 = \sqrt{ \sum_{i=1}^{n} f_i(\mathbf{x})^2 }.
 	\end{equation}
 \end{definition}
 
-Da der Agent das Ziel verfolgt die Belohnung über die Zeit zu maximieren, kann das negative Residuum als Belohnung interpretiert werden. Es gilt also: $Reward = -R(\mathbf{x})$.
+Im Zuge der Annäherung an die Lösung und der damit einhergehenden Fehlerreduktion lässt sich die Belohnung als das Inverse des Residuums darstellen.
+
+\begin{definition}[Belohnung]
+	\begin{equation}
+		Reward = \dfrac{c}{R(\mathbf{x}) + 1} \quad c \in \mathbb{R}
+	\end{equation}
+\end{definition}
+
+Folglich steigt die Belohnung proportional zur Verringerung des Residuums, was bedeutet, dass eine kontinuierliche Reduktion des Residuums zu einer zunehmend größeren Belohnung führt. Das Hauptziel dabei ist, den Agenten zu ermutigen, sich der Lösung kontinuierlich anzunähern. Der Parameter $c$ spiegelt dabei die maximal erreichbare Belohnung wieder. Für die Umsetzung innerhalb dieses Projektes wurde $c=1$ angenommen.
 \\
 
-Dieses Kapitel soll die grundsätzlichen Fragen beantworten, die bei der Kombination von RL und nichtlinearen Gleichungssystemen auftreten können. Diese müssen vor der tatsächlichen mit Bedacht beantwortet werden, sodass eine zielführende Lösungsfindung garantiert ist.
+Dieses Kapitel soll die grundsätzlichen Fragen beantworten, die bei der Kombination von RL und nichtlinearen Gleichungssystemen auftreten können. Diese müssen vor der tatsächlichen Umsetzung mit Bedacht beantwortet werden, sodass eine zielführende Lösungsfindung garantiert ist.
 
 Besonderes Augenmerk gilt dabei der Umgebung, dem Zustands- sowie Aktionsraum und der Belohnungsfunktion des Agenten.
 
@@ -365,7 +373,7 @@ Da die Grundlagen für nichtlineare Gleichungssysteme, sowie für RL gelegt word
 
 \section{Umsetzung}
 
-Bevor mit der Implementierung der Problemstellung, der Umgebung und des Agents begonnen wird, ist es von entscheidender Bedeutung, die Auswahl der richtigen Programmiersprache und Bibliothek sorgfältig zu prüfen. Diese Entscheidung bildet das Fundament für das gesamte Projekt und kann einen erheblichen Einfluss auf die Effizienz, Skalierbarkeit und den Erfolg der Umsetzung haben.
+Bevor mit der Implementierung der Problemstellung, der Umgebung und des Agenten begonnen wird, ist es von entscheidender Bedeutung, die Auswahl der richtigen Programmiersprache und Bibliothek zu prüfen. Diese Entscheidung bildet das Fundament für das gesamte Projekt und kann einen erheblichen Einfluss auf die Effizienz, Skalierbarkeit und den Erfolg der Umsetzung haben.
 \medskip
 
 Für dieses Projekt wurde die Programmiersprache \textit{Python} als Programmiersprache gewählt, zusammen mit der Reinforcement-Learning-Bibliothek \textit{stable-baselines3}. Diese Entscheidung basiert darauf, dass \textit{stable-baselines3} eine breite Palette von wichtigen RL-Algorithmen implementiert und gleichzeitig eine benutzerfreundliche Integration mit \textit{Python} bietet. Außerdem bietet diese Bibliothek eine ausgezeichnete Kompatibilität mit der Programm-Bibliothek \textit{gymnasium} von OpenAI, die essenziell für Erstellung von RL-Umgebungen ist. Die Kombination aus \textit{Python}, \textit{stable-baselines3} und \textit{gymnasium} ermöglicht eine effiziente Entwicklung und Umsetzung von Reinforcement-Learning-Algorithmen für die gegebenen Anforderungen des Projekts (vgl. \cite{Raffin2021}, vgl. \cite{Towers2023}). Der Programm-Code kann im folgenden Repository eingesehen werden: \url{https://github.com/Nicolas2912/OuS_Projekt}.
@@ -374,7 +382,7 @@ Für dieses Projekt wurde die Programmiersprache \textit{Python} als Programmier
 Für die Umsetzung des Agenten bzw. der Umgebung sind folgende Methoden für die Problemstellung relevant:
 
 \begin{itemize}
-	\item \textbf{\code{get\_distance(x)}}: Berechnet das Residuum für einen Vektor $\mathbf{x} \in \mathbb{R}^{n-1}$.
+	\item \textbf{\code{get\_distance(x)}}: Berechnet das Residuum für einen Vektor $\mathbf{x} \in \mathbb{R}^{n}$.
 	\item \textbf{\code{reward(residuum, *args)}}: Berechnet den Reward basierend auf dem Residuum und weiteren zusätzlichen Parametern.
 	\item \textbf{\code{step(action)}}: Führt einen Schritt während des Lernens in der Umgebung aus und aktualisiert dabei die Belohnung auf Grundlage verschiedener, vorher festgelegter Regeln.
 	\item \textbf{\code{reset()}}: Setzt die Umgebung auf einen zufälligen Zustand zurück, sobald eine bestimmte Bedingung erfüllt ist.
@@ -406,34 +414,6 @@ Nachfolgend ist eine verkürzte Initialisierung der Umgebung dargestellt.
 Bei der Initialisierung der Umgebung muss der Bereich der möglichen Aktionen (\code{action\_space}) angegeben werden. Da mögliche Lösungen für ein nichtlineares Gleichungssystem sich im ganzen Raum $\mathbb{R}^n$ befinden können, bietet sich dieser auch für die möglichen Aktionen an. Jedoch ist es nicht möglich den ganzen Raum (von $-\infty$ bis $\infty$) anzugeben, sodass Grenzen gesetzt werden müssen. Diese sind im Code mit den Variablen \code{self.low\_bounds} und \code{self.high\_bounds} beschrieben. Hierbei zeichnet sich auch einer der Nachteile ab. Da bei den allermeisten nichtlinearen Gleichungssystemen von Beginn an nicht abzuschätzen ist, in welchem Teil des Lösungsraumes sich die Lösung(en) befindet/befinden, stellt die Wahl des Aktionsraumes eine Herausforderung dar. Ähnlich wie beim Newton-Raphson-Verfahren, bei dem ein initialer Startpunkt notwendig ist, der die Laufzeit des Verfahrens maßgeblich beeinflussen kann, so kann auch die Größe des Aktionsraumes die Laufzeit der Lösungsfindung maßgeblich beeinflussen.
 \bigskip
 
-\underline{Berechnung des Residuums (Distanz):}
-\smallskip
-
-Da die Qualität der aktuellen Lösung im Projektcode anhand des Residuums bestimmt wird, ist es wichtig, den Prozess der Residuum-Berechnung kurz darzustellen.
-\medskip
-
-Für manche Arten von Problemen hat es sich als vorteilhaft erwiesen, das Residuum auf eine festgelegte Skala zu skalieren (bspw. logarithmische Skalierung, Min-Max-Skalierung etc.). Im folgenden ist ein Ausschnitt aus der Methode zur Berechnung des Residuums zu sehen.
-
-\begin{lstlisting}[language=Python, caption={Berechnung des Residuums}, label={lst:python}]
-	def get_distance(point):
-		scaling = "logarithmic"
-		equations = self.nse()
-		
-		# Calculate the function values for all equations
-		values = np.array([eq(point) for eq in equations])
-		
-		# calculate normal residuum
-		normal_res = sum((values[i] - values[j]) ** 2 for i in range(len(values)) for j in range(i + 1, len(values)))
-		self.all_residuals.append(normal_res)
-		
-		if scaling == "logarithmic":
-			scaled_values = np.log1p(np.abs(values)) / np.log(10)
-			res = sum((scaled_values[i] - scaled_values[j]) ** 2 for i in range(len(scaled_values)) for j in
-			range(i + 1, len(scaled_values)))
-			return res, normal_res		
-\end{lstlisting}
-\bigskip
-
 \underline{Ausführung eines Lernschritts:}
 \smallskip
 
@@ -449,16 +429,9 @@ Zuerst seien die wichtigsten Variablen in Tabelle \ref{tab:Variablendefinition} 
 		\toprule
 		\textnormal{Variable} & \textnormal{Beschreibung} \\
 		\midrule
-		\text{\code{distances}} & Eine Liste, die Entfernungen (Residuen) enthält. \\
-		\text{\code{best\_actions}} & Eine Liste, die die besten Aktionen enthält. \\
-		\text{\code{best\_distances}} & Eine Liste, die die besten erreichten Entfernungen enthält. \\
-		\text{\code{improvement\_rate\_history}} & Eine Liste, die Verbesserungsraten enthält. \\
+		\text{\code{best\_residuum}} & Das aktuell beste Residuum.\\
+		\text{\code{last\_residuum}} & Das Residuum aus dem vorherigen Schritt.\\
 		\text{\code{good\_points\_threshold}} & Der Schwellenwert für einen \glqq guten Punkt\grqq{}. \\
-		\text{\code{no\_improvement\_limit}} & Die Grenze für aufeinanderfolgende Iterationen ohne Verbesserung. \\
-		\text{\code{dynamic\_reward}} & Die dynamisch akkumulierte Belohnung. \\
-		\text{\code{dynamic\_penalty}} & Die dynamisch akkumulierte Strafe. \\
-		\text{\code{total\_reward}} & Die insgesamt akkumulierte Belohnung. \\
-		\text{\code{improvement\_rate}} & Die berechnete Verbesserungsrate. \\
 		\text{\code{done}} & Ein boolescher Wert, der den Abschluss anzeigt. \\
 		\text{\code{consecutive\_no\_improvement}} & Die Anzahl aufeinanderfolgender Iterationen ohne Verbesserung.\\
 		\bottomrule
@@ -483,132 +456,124 @@ Zuerst seien die wichtigsten Variablen in Tabelle \ref{tab:Variablendefinition} 
 	% Initialization
 	\textbf{Initialization:}
 	
-	\text{\code{residuum}} = \code{get\_distance(action)}, \text{\code{reward}} = $-$\code{residuum}, \text{\code{dynamic\_reward}} = \text{\code{dynamic\_penalty}} = 0, \text{\code{total\_reward}} = 0, \text{\code{no\_improvement\_limit}} = 50, \code{done} $=$ \code{False}\;	
+	\text{\code{residuum}} = \code{get\_distance(action)}, \text{\code{reward}} = \text{\code{residuum}}, \code{done} $=$ \code{False}	
 	
 	% Check Conditions
-	\greencomment{\# Belohung, wenn die derzeitige Aktion besser als die vorherige ist}
+	\greencomment{\# Belohung, wenn die derzeitige Aktion besser als die beste Aktion}
 	
-	 \If{$\text{len}(\text{\code{distances}}) > 1$ \textbf{and} \text{\code{residuum}} $<$ \text{\code{distances[n-1]}}}
+	 \If{\text{\code{residuum}} $<$ \text{\code{best\_residuum}}}
 	{
-		\hspace*{1em} $\text{\code{residuum\_difference\_reward}} = \text{\code{distances[n-1]}} - \text{\code{residuum}}$
+		\hspace*{1em} $\text{\code{best\_residuum}} = \text{\code{residuum}}$
 		
-		\hspace*{1em} $\text{\code{dynamic\_reward}} = \text{\code{dynamic\_reward}} + \text{\code{residuum\_difference\_reward}} \cdot (\text{\code{distances[n-1]}} - \text{\code{residuum}})$
+		\hspace*{1em} $\text{\code{reward}} = \text{\code{reward}} + 1$
 	}
 	
-	\greencomment{\# Bestrafung, wenn die Aktion schlechter als die vorherige ist}
+	\greencomment{\# Bestrafung, wenn die derzeitige Aktion schlechter als die beste Aktion ist}
 	
-	\If{$\text{len}(\text{\code{best\_actions}}) > 1$ \textbf{and} \text{\code{residuum}} $>$ \text{\code{best\_distances[-2]}}}
-	{
-		\hspace*{1em} $\text{\code{residuum\_difference\_penalty}} = \text{\code{residuum}} - \text{\code{distances[n-1]}}$
-		
-		\hspace*{1em} $\text{\code{dynamic\_penalty}} = \text{\code{dynamic\_penalty}} \cdot (\text{\code{residuum}} - \text{\code{distances[n-1]}})$
-	}
-	
-	$\text{\code{reward}} = \text{\code{reward}} + \text{\code{dynamic\_reward}}$
-	
-	$\text{\code{penalty}} = \text{\code{penalty}} + \text{\code{dynamic\_penalty}}$
-	
-	% Update Improvement Rate and Threshold
-	\greencomment{\# Berechnet die Verbesserungsrate, passt den Schwellenwert für gute Punkte an und setzt das Limit für aufeinanderfolgende Nichtverbesserungen.
-	}
-	
-	\If{$\text{len}(\text{\code{best\_distances}}) > 1$}
-	{
-		\hspace*{1em} $\text{\code{improvement\_rate}} = \dfrac{\text{\code{distances[n-1]}} - \text{\code{distances[n]}}}{\text{\code{distances[n-1]}}}$
-		
-		\hspace*{1em} \text{\code{append improvement\_rate to improvement\_rate\_history}}
-		
-		\hspace*{1em} \text{\code{good\_points\_thrs}} $= \max\{0.9, \text{\code{good\_points\_thrs}} \cdot (1 - \text{\code{improvement\_rate}})\}$
-		
-		\hspace*{1em} \text{\code{no\_improvement\_limit}} $= \max \{50, 100 \cdot \text{\code{improvement\_rate}} \}$
-		
-	}
 	\Else
 	{
-		\hspace*{1em} \text{\code{no\_improvement\_rate}} $= 50$
+		\hspace*{1em} $\text{\code{reward}} = \text{\code{reward}} - 0.1$
 	}
 	
-	% Check Termination
-	\greencomment{\# Algorithmus terminiert, wenn Residuum besser als Schwellenwert}
+	$\text{\code{improvement}} = \text{\code{residuum}} - \text{\code{last\_residuum}}$
 	
-	\If{\text{\code{residuum}} $\leq$ \text{\code{good\_points\_threshold}}}
+	\greencomment{\# Belohnung wenn die gewählte Aktion zu einer Verbesserung führt}
+	
+	\If{\text{\code{improvement}} $< 0$}
 	{
+		\hspace*{1em} \text{\code{reward}} $=$ \text{\code{reward}} $+ \;0.1$
+	}
+	
+	\greencomment{\# Bestrafung wenn die gewählte Aktion zu keiner Verbesserung führt}
+	
+	\Else
+	{
+		\hspace*{1em} \text{\code{reward}} $=$ \text{\code{reward}} $- \;0.1$
+	}
+	
+	\greencomment{\# Belohnung, wenn die Aktion besser als der dynamische Schwellenwert ist}
+	
+	\If{\text{\code{residuum}} $<$ \text{\code{good\_points\_thrs}}}
+	{
+		\hspace*{1em} 	\text{\code{reward}} $=$ \text{\code{reward}} $+ \;0.05$
+		
+		\hspace*{1em} \text{\code{good\_points\_thrs}} $=$ \text{\code{good\_points\_thrs}} $\cdot\; 0.95$
+		
 		\hspace*{1em} \text{\code{done}} $=$ \text{\code{True}}
 		
-		\hspace*{1em} \text{\code{consecutive\_no\_improvement}} $= 0$
+		\hspace*{1em}  \text{\code{consecutive\_no\_improvement}} $= 0$
 	}
+	
+	\greencomment{\# Bestrafung, wenn die Aktion schlechter als der dynamische Schwellenwert ist}
 	
 	\Else
 	{
-		\hspace*{1em} \text{\code{consecutive\_no\_improvement}} = \text{\code{consecutive\_no\_improvement}} $+ 1$
+		\hspace*{1em} \text{\code{reward}} $=$ \text{\code{reward}} $-\; 0.01$
 		
-		\hspace*{1em} \If{\text{\code{consecutive\_no\_improvement}} $\geq$ \text{\code{no\_improvement\_limit}}}
+		\hspace*{1em}  \text{\code{consecutive\_no\_improvement}} $=$ \text{\code{consecutive\_no\_improvement}} $+ 1$
+		
+		\hspace*{1em} \If{\text{\code{consecutive\_no\_improvement}} $\geq 50$}
 		{
+			\hspace*{2em} \text{\code{reward}} $=$ \text{\code{reward}} $-\; 0.02$
+			
 			\hspace*{2em} \text{\code{done}} $=$ \text{\code{True}}
 			
-			\hspace*{2em} \text{\code{reward}} $= 0$
 		}
 	}
 	
-	% Reward Shaping
-	\greencomment{\# Zusätzliche Belohnung, wenn die Verbesserungsrate besser ist als $0.01$}
-	
-	\If{\text{\code{improvement\_rate}} $> 0.01$}
-	{
-		\hspace*{1em} \text{\code{reward}} $=$ \text{\code{reward}} $+ 1$ 
-	}
-	
-	\textbf{return} \quad \text{\code{state}}, \text{\code{reward}}, \text{\code{done}}
+	return \text{\code{reward}}, \text{\code{done}}
 	
 \end{algorithm}
 \medskip
 
-\text{Beschreibung:}
-\smallskip
-
-\begin{enumerate}
-	\item \textbf{Initialisierung:}
+\textbf{Beschreibung:}
+\begin{itemize}
+	\item \textbf{Aktualisierung des besten Residuums:}
 	\begin{itemize}
-		\item Die Variable \texttt{residuum} wird durch \texttt{get\_distance(action)} initialisiert, wobei \texttt{action} die aktuelle Aktion darstellt.
-		\item Die Variable \texttt{reward} wird als das Negative des Residuums initialisiert, um eine Strafe für ungünstige Zustände zu erhalten.
-		\item Die dynamisch akkumulierte Belohnung (\texttt{dynamic\_reward}) und Strafe (\texttt{dynamic\_penalty}) sowie die Gesamtbelohnung (\texttt{total\_reward}) werden auf Null gesetzt.
-		\item Der Parameter \texttt{no\_improvement\_limit} wird auf 50 festgelegt, um die Anzahl aufeinanderfolgender Iterationen ohne Verbesserung zu begrenzen.
-		\item Die Variable \texttt{done} wird auf \texttt{False} gesetzt, um den Algorithmus als nicht abgeschlossen zu markieren.
+		\item Wenn das aktuelle Residuum (\textit{residuum}) geringer ist als das bisher beste aufgezeichnete Residuum (\textit{best\_residuum}):
+		\begin{itemize}
+			\item Aktualisiere \textit{best\_residuum} auf das aktuelle \textit{residuum}.
+			\item Erhöhe die Belohnung um 1,0.
+		\end{itemize}
+		\item Andernfalls:
+		\begin{itemize}
+			\item Verringere die Belohnung um 0,1.
+		\end{itemize}
 	\end{itemize}
 	
-	\item \textbf{Überprüfung der Bedingungen:}
+	\item \textbf{Belohnung für Verbesserung:}
 	\begin{itemize}
-		\item Wenn die Länge der Liste \texttt{distances} größer als eins ist und das aktuelle Residuum kleiner als das vorherige Residuum ist, wird eine Belohnung für die Verbesserung berechnet und zu \texttt{dynamic\_reward} addiert.
-		\item Wenn die Länge der Liste \texttt{best\_actions} größer als eins ist und das aktuelle Residuum größer als das vorherige beste Residuum ist, wird eine Strafe für die Verschlechterung berechnet und zu \texttt{dynamic\_penalty} addiert.
+		\item Wenn die aktuelle Aktion eine Verbesserung gegenüber dem letzten Residuum darstellt (d.h. \textit{improvement} ist negativ):
+		\begin{itemize}
+			\item Erhöhe die Belohnung um 0,1.
+		\end{itemize}
+		\item Andernfalls:
+		\begin{itemize}
+			\item Verringere die Belohnung um 0,1.
+		\end{itemize}
 	\end{itemize}
 	
-	\item \textbf{Aktualisierung der Belohnung und Strafe:}
+	\item \textbf{Belohnung und Strafe basierend auf Schwellenwert:}
 	\begin{itemize}
-		\item Die dynamisch akkumulierte Belohnung (\texttt{dynamic\_reward}) und Strafe (\texttt{dynamic\_penalty}) werden zu \texttt{reward} und \texttt{penalty} addiert.
+		\item Wenn \textit{residuum} unterhalb des Schwellenwertes (\textit{good\_points\_thrs}) liegt:
+		\begin{itemize}
+			\item Erhöhe die Belohnung um 0,05.
+			\item Reduziere den Schwellenwert, indem er mit 0,95 multipliziert wird.
+			\item Setze \textit{done} auf Wahr, um ein erfolgreiches Ende zu signalisieren.
+			\item Setze den Zähler für aufeinanderfolgende Nicht-Verbesserungen (\textit{consecutive\_no\_improvement}) auf 0 zurück.
+		\end{itemize}
+		\item Andernfalls:
+		\begin{itemize}
+			\item Verringere die Belohnung um 0,01.
+			\item Erhöhe den Zähler für aufeinanderfolgende Nicht-Verbesserungen (\textit{consecutive\_no\_improvement}) um 1.
+			\item Wenn der Zähler für aufeinanderfolgende Nicht-Verbesserungen 50 erreicht:
+			\begin{itemize}
+				\item Setze \textit{done} auf Wahr, um das Ende aufgrund mangelnder Verbesserung zu signalisieren.
+				\item Verringere die Belohnung weiter um 0,02.
+			\end{itemize}
+		\end{itemize}
 	\end{itemize}
-	
-	\item \textbf{Aktualisierung der Verbesserungsrate und des Schwellenwerts für gute Punkte:}
-	\begin{itemize}
-		\item Die Verbesserungsrate wird berechnet und zur Verbesserungsraten-Historie (\texttt{improvement\_rate\_history}) hinzugefügt.
-		\item Der Schwellenwert für gute Punkte (\texttt{good\_points\_thrs}) wird entsprechend der aktuellen Verbesserungsrate angepasst.
-		\item Die Grenze für aufeinanderfolgende Nichtverbesserungen (\texttt{no\_improvement\_limit}) wird basierend auf der Verbesserungsrate aktualisiert.
-	\end{itemize}
-	
-	\item \textbf{Überprüfung der Terminierungsbedingung:}
-	\begin{itemize}
-		\item Wenn das aktuelle Residuum kleiner oder gleich dem Schwellenwert für gute Punkte ist, wird der Algorithmus als abgeschlossen markiert und die Anzahl aufeinanderfolgender Nichtverbesserungen wird auf null zurückgesetzt.
-		\item Andernfalls wird die Anzahl aufeinanderfolgender Nichtverbesserungen inkrementiert, und wenn diese die Grenze erreicht oder überschreitet, wird der Algorithmus ebenfalls als abgeschlossen markiert und die Belohnung auf null gesetzt.
-	\end{itemize}
-	
-	\item \textbf{Belohnungsformung:}
-	\begin{itemize}
-		\item Eine zusätzliche Belohnung wird vergeben, wenn die Verbesserungsrate größer als 0,01 ist.
-	\end{itemize}
-	
-	\item \textbf{Rückgabe:}
-	Die Zustandsinformation, die Belohnung und der Abschlussstatus werden zurückgegeben.
-\end{enumerate}
-
+\end{itemize}
 Folgende nichtlineare Gleichungssysteme wurden für die Auswertung des Verfahrens herangezogen:
 \smallskip
 
@@ -616,8 +581,7 @@ Folgende nichtlineare Gleichungssysteme wurden für die Auswertung des Verfahren
 
 \begin{subequations}\label{nse:1}
 	\begin{align}
-		x^5 - 3x^4+x^3+0.5x^2 &= 0\\
-		\sin(2x) &= 0
+		x^5 - 3x^4+x^3+0.5x^2 - \sin(2x)&= 0\\
 	\end{align}
 \end{subequations}
 
@@ -671,30 +635,29 @@ Die Umsetzung dieses Kapitels legt das Fundament für die Experimente und Ergebn
 Für den Ansatz und für die gegebenen Problemstellungen haben sich folgende Ergebnisse ergeben:
 \smallskip
 
+
 \begin{table}[h]
 	\centering
-	
-	\begin{tabular}{c||c|c|c|>{\centering\arraybackslash}p{2cm}|>{\centering\arraybackslash}p{3cm}|>{\centering\arraybackslash}p{2.5cm}}
-		\textbf{NSE} & \textbf{Epochs} & \textbf{Time} (in s) & \textbf{Best Action} & \textbf{Best Residuum} & \textbf{Best Action} & \textbf{Best Residuum} \\
-		& & & & & \textbf{(Global Optimum)} & \textbf{(Global Optimum)} \\
+	\begin{tabular}{c||c|c|c|c}
+		\textbf{NSE} & \textbf{Epochs} & \textbf{Time (s)} & \textbf{Best Action} & \textbf{Best Residuum} \\
 		\hline
-		\multirow{5}{*}{NSE 1 (\ref{nse:1})} & $1,000$ & $3.507$ & $0.0005$ & $9.6867e-07$ & - & - \\
-		& $5,000$ & $ 15.117$ & $0.0001$ & $6.1323e-08$ & - & - \\
-		& $10,000$ & $32.300$ & $-9.2649e-05$ & $3.4338e-08$ & - & - \\
-		& $50,000$ & $503.706$ & $-2.2873e-05$ & $2.0928e-09$ & - & - \\
+		\multirow{4}{*}{NSE 1} & $1,000$ & $3.794$ & $-0.69869$ & $0.0065$ \\
+		& $5,000$ & $15.402$ & $-0.69986$ & $0.00015$ \\
+		& $10,000$ & $39.177$ & $-0.69982$ & $5.79 \times 10^{-5}$ \\
+		& $50,000$ & $548.275$ & $-3.08 \times 10^{-5}$ & $6.17 \times 10^{-5}$ \\
 		\hline
-		\multirow{5}{*}{NSE 2 (\ref{nse:rosenbrock})} & $1,000$ & $3.0820$ & $[0.2543, 0.1391]$ & $9.1665e-07$ & $[0.9751, 1.0427]$ & $0.0494$ \\
-		& $5,000$ & $9.8100$ & $[-1.0716, 1.3556]$ & $1.5952e-07$ & $[0.9848, 0.9994]$ & $0.0152$ \\
-		& $10,000$ & $17.5740$ & $[0.7799, 0.6300]$ & $8.6779e-06$ & $[0.9775, 1.0144]$ & $0.0268$ \\
-		& $50,000$ & $92.9910$ & $[-0.0906, 0.1172]$ & $7.7158e-09$ & $[1.0025, 1.0112]$ & $0.0115$ \\
+		\multirow{4}{*}{NSE 2} & $1,000$ & $3.305$ & $[0.993, 0.971]$ & $0.1488$ \\
+		& $5,000$ & $9.898$ & $[1.061, 1.145]$ & $0.1997$ \\
+		& $10,000$ & $15.447$ & $[0.920, 0.834]$ & $0.1421$ \\
+		& $50,000$ & $107.568$ & $[0.891, 0.795]$ & $0.1101$ \\
 		\hline
-		\multirow{5}{*}{NSE 3 (\ref{nse:highdimension})} & $1,000$ & $3.181$ & $[-0.3101, -0.4941, ...]$ & $0.1293$ & $[-1.4969, 1.237, ...]$ & $0.9246$ \\
-		& $5,000$ & $9.702$ & $[-0.4831, 0.2992, ...]$ & $0.0652$ & $[-0.5703, 0.7588, ...]$ & $0.9094$ \\
-		& $10,000$ & $17.513$ & $[-0.9745, -0.3335, ...]$ & $0.0177$ & $[-1.0468, 1.275, ...]$ & $1.1439$ \\
-		& $50,000$ & $102.152$ & $[0.0151, 1.1305, ...]$ & $0.0071$ & $[-1.2344, 0.3361, ...]$ & $0.6918$ \\
+		\multirow{4}{*}{NSE 3} & $1,000$ & $3.052$ & $[0.209, -0.705, ...]$ & $0.5992$ \\
+		& $5,000$ & $9.145$ & $[1.217, -0.910, ...]$ & $0.7148$ \\
+		& $10,000$ & $16.307$ & $[0.303, 0.301, ...]$ & $0.7161$ \\
+		& $50,000$ & $97.955$ & $[0.046, 0.465, ...]$ & $0.5992$ \\
 	\end{tabular}
-		\caption{Ergebnisse des Agenten für unterschiedliche Problemstellungen}
-		\label{tab:Ergebnisse}
+	\caption{Ergebnisse des Agenten für unterschiedliche Problemstellungen}
+	\label{tab:Ergebnisse}
 \end{table}
 
 \begin{table}[h]
@@ -704,7 +667,7 @@ Für den Ansatz und für die gegebenen Problemstellungen haben sich folgende Erg
 		\textbf{NSE} & \textbf{Steps} & \textbf{Time} (in s) & \textbf{Startpunkt} $\mathbf{x_0}$ & \textbf{Solution} & \textbf{Tolerance}  \\
 		\hline
 		\multirow{4}{*}{NSE 1 (\ref{nse:1})} & $5$ & $0.005$ & $5.0$ & $2.5777$ & $0.1919$\\
-		& $10$ & $0.007$ & $5.0$ & $2.4937$ & $7e-15$\\
+		& $10$ & $0.007$ & $5.0$ & $2.4937$ & $7 \times 10^{-15}$\\
 		& $15$ & $0.010$ & $5.0$ & $2.4936$ & $0.0$\\
 		& $20$ & $0.013$ & $5.0$ & $2.4936$ & $0.0$\\
 		\hline
@@ -721,25 +684,6 @@ Für den Ansatz und für die gegebenen Problemstellungen haben sich folgende Erg
 	\centering
 	\begin{subfigure}
 		\centering
-		\includegraphics[width=0.45\textwidth]{Bilder/BestResiduum_Time_nse1-3.png}
-		%\caption{Darstellung der besten\\ gefundenen Residuen über die Zeit}
-		\label{fig:bestresiduum_time_allnse}
-	\end{subfigure}
-	\hfill
-	\begin{subfigure}
-		\centering
-		\includegraphics[width=0.45\textwidth]{Bilder/Residuum_globaloptimum_time_nse2-3.png}
-		%\caption{Darstellung der besten\\ gefundenen Residuen zum globalen\\ Optimum über die Zeit}
-		\label{fig:bestresiduum_globaloptimum_time_nse1-2}
-	\end{subfigure}
-	\caption{Darstellung der besten gefundenen Residuen über die Zeit für alle Probleme und der besten Residuen zum globalen Optimum für NSE 1 \& NSE 2}
-	\label{fig:zusammenstellung}
-\end{figure}
-
-\begin{figure}[h]
-	\centering
-	\begin{subfigure}
-		\centering
 		\includegraphics[width=0.45\textwidth]{Bilder/solutions_nse1.png}
 		%\caption{Gefundene Lösung für NSE 1 (\ref{nse:1}) mit einem Schwellenwert $\leq 1e-5$}
 		\label{fig:solutions_nse1}
@@ -751,59 +695,80 @@ Für den Ansatz und für die gegebenen Problemstellungen haben sich folgende Erg
 		%\caption{Gefundene Lösung für NSE 2 (\ref{nse:2}) mit einem Schwellenwert $\leq 1e-3$}
 		\label{fig:solutions_nse2}
 	\end{subfigure}
-	\caption{Gefundene Lösungen für NSE 1 (mit Schwellenwert $\leq 1e-5$) und NSE 2 (mit Schwellenwert $\leq 1e-3$)}
+	\caption{Gefundene Lösungen für NSE 1 (mit Schwellenwert $\leq 1 \times 10^{-3}$) und NSE 2 (mit Schwellenwert $\leq 1$)}
 	\label{fig:solutions_nse1_nse2}
 \end{figure}
 
+\begin{figure}[h]
+	\centering
+	\begin{subfigure}
+		\centering
+		\includegraphics[width=0.45\textwidth]{Bilder/best_residuen.png}
+		%\caption{Gefundene Lösung für NSE 1 (\ref{nse:1}) mit einem Schwellenwert $\leq 1e-5$}
+		\label{fig:best_residuen}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}
+		\centering
+		\includegraphics[width=0.45\textwidth]{Bilder/threshold_over_time.png}
+		%\caption{Gefundene Lösung für NSE 2 (\ref{nse:2}) mit einem Schwellenwert $\leq 1e-3$}
+		\label{fig:good_points_thrs}
+	\end{subfigure}
+	\caption{Entwicklung der besten Residuen über die Zeit \& Die Entwicklung des \glqq gute\grqq{} Punkte Schwellenwertes über die Zeit.}
 
-In den vorliegenden Ergebnissen fällt besonders auf, dass das vermeintlich einfachste Problem (NSE 1, \ref{nse:1}) die längste Zeit benötigt, um alle 50.000 Epochen abzuschließen - etwa 500 Sekunden. Im Gegensatz dazu liegt die Dauer für die Absolvierung der gleichen Anzahl von Epochen für die Probleme \ref{nse:rosenbrock} und \ref{nse:highdimension} in einer Größenordnung von nur knapp 100 Sekunden. Eine mögliche Erklärung dafür liegt darin, dass das Residuum für das erste Problem (NSE 1, \ref{nse:1}) sehr schnell in einen extrem kleinen Bereich fällt. Dadurch erfordert selbst eine geringfügige Verbesserung des Ergebnisses bereits sehr kleine Anpassungen in den Aktionen des Agenten. Allerdings könnte der Agent aufgrund von Beschränkungen in seiner Aktionsraumgröße Schwierigkeiten haben, Änderungen im Bereich von $1e-9$ zu erreichen. Dadurch wird möglicherweise keine signifikante Verbesserung erzielt, sodass die Optimierung stagniert und die Zeit zur Absolvierung der 50000 Epochen zunimmt. 
+\end{figure}
+
+
+In den vorliegenden Ergebnissen fällt besonders auf, dass das vermeintlich einfachste Problem (NSE 1, \ref{nse:1}) die längste Zeit benötigt, um alle 50.000 Epochen abzuschließen - etwa 550 Sekunden. Im Gegensatz dazu liegt die Dauer für die Absolvierung der gleichen Anzahl von Epochen für die Probleme \ref{nse:rosenbrock} und \ref{nse:highdimension} in einer Größenordnung von nur knapp 100 Sekunden. Eine mögliche Erklärung dafür liegt darin, dass das Residuum für das erste Problem (NSE 1, \ref{nse:1}) sehr schnell in einen extrem kleinen Bereich fällt. Dadurch erfordert selbst eine geringfügige Verbesserung des Ergebnisses bereits sehr kleine Anpassungen in den Aktionen des Agenten. Allerdings könnte der Agent aufgrund von Beschränkungen in seiner Aktionsraumgröße Schwierigkeiten haben, Änderungen im Bereich von $1 \times 10^{-5}$ zu erreichen. Dadurch wird möglicherweise keine signifikante Verbesserung erzielt, sodass die Optimierung stagniert und die Zeit zur Absolvierung der 50000 Epochen zunimmt. 
 
 Jedoch wäre dies nur eine anfängliche Idee, die tiefer untersucht werden müsste, da für die Konvergenz des Verfahrens viele weitere Parameter einen Einfluss ausüben.
 \medskip
 
-Bei Problem 1 (NSE 1 \ref{nse:1}) ist zudem die Besonderheit, dass das nichtlineare Gleichungssystem mehrere globale Optima besitzt (in diesem Fall genau drei). Die meisten Verfahren, wie zum Beispiel das Newton-Raphson-Verfahren benötigen einen anfänglichen Startpunkt, und nähern sich dann iterativ genau \textbf{einer} Lösung an, sofern sie denn existiert. Beim vorliegenden Verfahren ist die Besonderheit, dass zum Teil mehrere Lösungen gefunden werden können, da der Agent allein lernt, das negative Residuum (Belohnung) zu maximieren. Da für alle Lösungen gilt, dass das Residuum $= 0$ ist, können entsprechend auch mehrere Lösungen gleichzeitig mit einer hinreichenden Genauigkeit gefunden werden. In mehreren Testläufen wurde auch die Lösung $x^{\ast} \approx -0.6998$ mit einer Genauigkeit, die sich in einer Größenordnung von $1e-7$ befindet, gefunden. In den seltensten Fällen jedoch wurde die Lösung bei $x^{\ast} \approx 2.4936$ mit einer Genauigkeit von $\leq 1e-5$ gefunden. Grund dafür ist die große Sensibilität beim Residuum, denn in diesem Bereich weist die Funktion $f(x) = x^5 - 3x^4+x^3+0.5x^2$ eine große Steigung auf, sodass kleine Änderungen im Wert von $x$ hier zu erheblichen Änderungen im Funktionswert $y$ führen. Dies hat zur Folge, dass die Belohnung für kleinere Änderungen in der Aktion stärker schwankt, sodass diese Aktionen im Mittel nicht vielversprechend genug sind. Der Agent konzentriert sich dann eher auf die Aktionen, die im Mittel eine höhere Belohnung liefern, sodass der Agent diese auch weiter verfolgt und in der näheren Umgebung dieser Aktionen mehr erkundet.
+Bei Problem 1 (NSE 1 \ref{nse:1}) ist zudem die Besonderheit, dass das nichtlineare Gleichungssystem mehrere globale Optima besitzt (in diesem Fall genau drei). Die meisten Verfahren, wie zum Beispiel das Newton-Raphson-Verfahren benötigen einen anfänglichen Startpunkt, und nähern sich dann iterativ genau \textbf{einer} Lösung an, sofern sie denn existiert. Beim vorliegenden Verfahren ist die Besonderheit, dass zum Teil mehrere Lösungen gefunden werden können, da der Agent allein lernt, die Belohnung zu maximieren. Da das Residuum für alle Lösungen gleich null ist, ist es möglich, mehrere Lösungen gleichzeitig mit ausreichender Genauigkeit zu identifizieren. Wie in Tabelle \ref{tab:Ergebnisse} dargestellt, konvergierte der Agent mit einer Anzahl von $1000$, $5000$ und $10000$ Epochen zunehmend zur Lösung bei $x^{\ast} \approx -0.6998$. Bei einer weiter erhöhten Epochenanzahl von $50000$ gelang es dem Agenten zusätzlich, sich der Lösung bei $x^{\ast} = 0$ anzunähern.
 
-In der Abbildung \ref{fig:reward-action-nse1-logscale} wird deutlich, wie sich die Belohnung in Abhängigkeit von der gewählten Aktion verhält.
-
-Dort ist deutlich zu sehen, dass die Belohnung spärlich um das eigentliche globale Optimum bei $x^{\ast} \approx 2.4936$ verteilt ist, sodass der Agent diese Aktion nicht genug bevorzugt und die Lösung nicht mit erhöhter Genauigkeit gefunden werden kann.
+In den seltensten Fällen jedoch wurde die Lösung bei $x^{\ast} \approx 2.4936$ mit einer Genauigkeit von $\leq 1 \times 10^{-3}$ gefunden. Grund dafür ist die große Sensibilität beim Residuum, denn in diesem Bereich weist die Funktion $f(x) = x^5 - 3x^4+x^3+0.5x^2 - \sin(x)$ eine große Steigung auf, sodass kleine Änderungen im Wert von $x$ hier zu erheblichen Änderungen im Funktionswert $y$ führen. Dies hat zur Folge, dass die Belohnung für kleinere Änderungen in der Aktion stärker schwankt, sodass diese Aktionen im Mittel nicht vielversprechend genug sind. Der Agent konzentriert sich dann eher auf die Aktionen, die im Mittel eine höhere Belohnung liefern, sodass der Agent diese auch weiter verfolgt und in der näheren Umgebung dieser Aktionen mehr erkundet.
 
 \begin{figure}[h]
 	\centering
-	\includegraphics[width=0.5\textwidth]{Bilder/reward_action_nse1_logscale.png}
-	\caption{Belohnung in Abhängigkeit von der Aktion für NSE 1 (\ref{nse:1}). Logarithmische Skalierung des Residuums}
-	\label{fig:reward-action-nse1-logscale}
+	\includegraphics[width=10cm]{Bilder/reward_action_inverse.png}
+	\caption{Belohnung in Abhängigkeit von der Aktion für NSE 1 (\ref{nse:1}).}
+	\label{fig:reward-action-nse1-inverse}
 \end{figure}
 \medskip
 
-Des Weiteren ist bei NSE 2 (\ref{nse:rosenbrock}) zu erkennen, dass bei einer Epochen-Anzahl von $10000$ die beste gefundene Aktion schlechter ist als im Vergleich dazu die beste gefundene Aktion bei einer geringeren Epochen-Anzahl wie $1000$. 
+Weiterhin ist zu beobachten, dass bei NSE 2 (siehe \ref{nse:rosenbrock}), eine Erhöhung der Epochenanzahl auf $5000$ nicht zu verbesserten Ergebnissen führt. Tatsächlich ist die bei dieser höheren Epochenanzahl gefundene optimale Aktion schlechter als die beste Aktion, die bei einer niedrigeren Zahl von $1000$ Epochen identifiziert wurde.
 
 Die könnte mit der Zufälligkeit des Agenten zusammenhängen, da der Agent zu Beginn zufällig im gegebenen Raum initialisiert wird und auch mit jedem Aufruf der \code{reset} Methode zufällig zurückgesetzt wird.
 
-Zudem wird auch hier die Problematik des nichtlinearen Gleichungssystems deutlich. Die Rosenbrock-Funktion besteht aus einem \glqq Banana\grqq{}-förmigen Tal mit mehreren lokalen Optima, sodass viele Optimierungsverfahren Schwierigkeiten haben das globale Optimum zu finden. Von dieser Problematik ist auch dieses Verfahren nicht ausgeschlossen. Der Agent findet zwar Lösungen mit einer Genauigkeit, die sich in einer Größenordnung von $1e-8$ befinden, jedoch sind diese zumeist lokale Optima, die beliebig weit vom globalen Optima entfernt sein können. Aus diesem Grund wurde auch die Spalte \textit{Best Action (Global Optimum)} (mit dem zugehörigen Residuum in der Spalte \textit{Best Residuum (Global Optimum)}) der Tabelle \ref{tab:Ergebnisse} hinzugefügt, um die Aktion zu betrachten, die sich am nächsten zum tatsächlichen globalen Optimum befindet. Werden diese zwei Spalten für die beiden Probleme (\ref{nse:rosenbrock} \& \ref{nse:highdimension}) betrachtet, lässt sich erkennen, dass das Residuum für diese Aktionen deutlich höher ist als das Residuum für die beste gefundenen Aktion.
+Zudem wird auch hier die Problematik des nichtlinearen Gleichungssystems deutlich. Die Rosenbrock-Funktion besteht aus einem \glqq Banana\grqq{}-förmigen Tal, indem die Residuen schnell sehr klein werden, sodass es eine Herausforderung darstellt das globale Optimum effizient zu finden. 
 \medskip
 
 Es ist nicht überraschend, dass die Genauigkeit der Lösung für NSE 3 (\ref{nse:highdimension}) bei gleicher Anzahl an Epochen geringer ist. Dies liegt daran, dass der Aktionsraum in diesem Fall 10-dimensional ist. Der Agent hat daher Schwierigkeiten, die Richtung zu bestimmen, in der sich das Residuum verbessern könnte. Mit steigender Dimension könnte sich diese Problematik weiter verschärfen, sodass der Agent bzw. der grundlegende Algorithmus für diese Problemstellung optimiert werden muss.
 \medskip
 
+In Abbildung \ref{fig:reward-action-nse1-inverse} ist die Belohnung in Abhängigkeit der gewählten Aktion für NSE 1 (\ref{nse:1}) zu sehen, mit einer zusätzlichen Verdeutlichung um die Lage der tatsächlichen globalen Optima. Es ist zu erkennen, dass die Belohnung größer wird, je näher die gefundene Lösung an der tatsächlichen Lösung befindet. Dank dieser Darstellung lässt sich auch erklären, weshalb der Agent in den seltensten Fällen die Lösung bei $2.49$ findet, da das Residuum sehr stark für kleine Änderungen in den Aktionen schwankt und so die Belohnung in diesem Bereich spärlich verteilt ist. 
+\medskip
+
 Grundlegend bei RL ist vor allen Dingen die \glqq teure\grqq{} Berechnung. Da der PPO-Algorithmus verwendet wurde, müssen dabei in jedem Schritt zwei neuronale Netze aktualisiert werden (Actor- und Critic-Netzwerk). Dies ist insbesondere im Vergleich zum relativ simplen Newton-Raphson-Verfahren sehr teuer und ein nicht zu vernachlässigender Faktor, der sich auf die Zeit auswirkt, bis zu dem eine Lösung mit einer bestimmten Genauigkeit gefunden wird.
 \\
 
-In diesem Kapitel wurden die wichtigsten Ergebnisse vorgestellt, die mit dem Ansatz erzielt wurden und untereinander verglichen. Es wurde auf Besonderheiten eingegangen und versucht mögliche Erklärungen zu finden. Abschließend dazu folgt nun das Fazit.
+In diesem Kapitel wurden die wichtigsten Ergebnisse vorgestellt, die mit dem Ansatz erzielt wurden und untereinander verglichen. Es wurde auf Besonderheiten eingegangen und versucht mögliche Erklärungen zu finden. Abschließend dazu kann nun ein zusammenfassendes Fazit formuliert werden.
 
 
 \section{Fazit}
 
-Als Fazit kann formuliert werden, dass das präsentierte Verfahren grundsätzlich in der Lage ist Lösungen von nichtlinearen Gleichungssystemen zu finden. Besonders gut funktioniert das Verfahren für eindimensionale Probleme, bei denen die Lösungen robust sind, als nicht sensibel auf kleine Änderungen der Aktion reagieren. Anders formuliert funktioniert das Verfahren eben für solche eindimensionale nichtlineare Gleichungssysteme gut, bei denen die Summe der Beträge der Steigungen aller Gleichungen klein ist. Für solche Probleme ist das Verfahren mit dargestellter Umsetzung in der Lage Lösungen mit einer Genauigkeit von $1e-8$ bis zu $1e-9$ zu finden. Vor dem Hintergrund der Zeit und der Berechnungskomplexität allerdings, schließt dieses Verfahren insbesondere im Vergleich zu dem etablierten Newton-Raphson-Verfahren schlecht ab. Dieses Verfahren findet mit weniger Berechnungen und in kürzerer Dauer die Lösung mit einer höheren Genauigkeit. Jedoch sollte dabei auch erwähnt sein, dass dieses Verfahren einen initialen Startpunkt benötigt, von dem das Verfahren sich iterativ der nächsten Lösung annähert. Demzufolge auch nur eine Lösung findet. 
+Als Fazit kann formuliert werden, dass das präsentierte Verfahren grundsätzlich in der Lage ist Lösungen von nichtlinearen Gleichungssystemen zu finden. Besser funktioniert das Verfahren für eindimensionale Probleme, bei denen die Lösungen robust sind, also nicht sensibel auf kleine Änderungen der Aktion reagieren. Für solche Probleme ist das Verfahren mit dargestellter Umsetzung in der Lage Lösungen mit einer Genauigkeit von ungefähr $3 \times 10^{-5}$ finden. Vor dem Hintergrund der Zeit und der Berechnungskomplexität allerdings, schließt dieses Verfahren insbesondere im Vergleich zu dem etablierten Newton-Raphson-Verfahren schlecht ab. Dieses Verfahren findet mit weniger Berechnungen und in kürzerer Dauer die Lösung mit einer höheren Genauigkeit. Jedoch sollte dabei auch erwähnt sein, dass dieses Verfahren einen initialen Startpunkt benötigt, von dem das Verfahren sich iterativ der nächsten Lösung annähert. Demzufolge auch nur eine Lösung findet.
+\smallskip
 
-Es hängt vom spezifischen Anwendungsfall ab, ob es genügt eine Lösung zu finden, oder mehr. Sollte der Fall vorliegen, dass mehrere Lösungen gefunden werden sollen, so könnte das hier präsentierte Verfahren geeigneter sein als das Newton-Raphson-Verfahren, sofern auch die zeitliche Komponente keine große Rolle spielt. Zusätzlich dazu kann das hier vorgestellte Verfahren möglicherweise eher dazu verwendet werden, eine oder mehrere mögliche Startpunkte für andere iterative Verfahren zu generieren, wenn keinerlei Informationen über die grobe Lage von Lösungen vorliegt. Die iterativen Verfahren könnten im Anschluss daran die bisherigen gefundenen Lösungen nutzen, um diese weiter zu verbessern und schnell eine Lösung größerer Genauigkeit zu finden.
+Je nach Anforderung des spezifischen Anwendungsfalls kann es auch notwendig sein mehrere Lösungen zu identifizieren, sodass diesbezüglich das vorgestellte Verfahren von Vorteil sein kann. Des Weiteren kann sich dieser Ansatz auch als günstig erweisen, um vielversprechende Startpunkte für iterative Verfahren ausfindig zu machen, sodass die grobe Lage möglicher Lösungen geschätzt werden kann. Iterative Verfahren könnten daran anknüpfen und diese Lösungen nutzen, um Lösungen mit höherer Genauigkeit zu finden. 
 \medskip
 
-Bei der Anwendung dieses Verfahrens auf die Rosenbrock-Funktion (NSE 2, \ref{nse:rosenbrock}), wurde deutlich, dass auch dieses Verfahren Schwierigkeiten hat, das globale Optimum zuverlässig zu finden. Wie viele andere Optimierungsalgorithmen ist es anfällig für das Feststecken in lokalen Optima, was seine Fähigkeit zur zielgerichteten Suche nach dem globalen Optimum einschränkt. Diese Herausforderung betrifft eine Vielzahl von Optimierungsmethoden und erfordert eine kontinuierliche Verbesserung, um damit umzugehen. Zusätzliche Informationen, die spezifisch für das Problem sind, können helfen, das globale Optimum besser und effizienter zu finden. Allerdings könnten solche Informationen für andere Problemstellungen weniger relevant sein, was ihre breite Anwendbarkeit einschränken könnte.
+Bei der Anwendung dieses Verfahrens auf die Rosenbrock-Funktion (NSE 2, \ref{nse:rosenbrock}), wurde deutlich, dass auch dieses Verfahren Schwierigkeiten hat, das globale Optimum effizient zu finden. Zusätzliche Informationen, die spezifisch für das Problem sind, können helfen, das globale Optimum besser und effizienter zu finden. Allerdings könnten solche Informationen für andere Problemstellungen weniger relevant sein, was ihre breite Anwendbarkeit einschränken könnte.
 \medskip
 
-Insbesondere bei nichtlinearen Gleichungen höherer Dimension deutet sich an, dass die Genauigkeit der gefundenen Lösungen stark abnimmt. Während für NSE 1 und NSE 2 Lösungen mit einer Genauigkeit von $1e-7$ bis $1e-9$ gefunden werden konnten, befand sich die beste gefundene Lösung für NSE 3 (mit einer Dimension von  $10$) in einer Größenordnung von $1e-3$ bei gleichbleibender Epochen-Anzahl.
+Insbesondere bei nichtlinearen Gleichungen höherer Dimension deutet sich an, dass die Genauigkeit der gefundenen Lösungen stark abnimmt. Während für NSE 1 und NSE 2 Lösungen mit einer Genauigkeit von ungefähr $3 \times 10^{-5}$ für NSE 1 und $0.1$ für NSE 2 gefunden werden konnten, befand sich der Fehler der besten gefundene Lösung für NSE 3 (mit einer Dimension von  $10$) in einer Größenordnung von $0.59$ bei gleichbleibender Epochen-Anzahl.
 
-Es bleibt zu untersuchen, ob eine generelle Tendenz besteht, dass die Genauigkeit der Lösung mit zunehmender Dimension des Problems abnimmt. Um diese Frage zu beantworten, sind ausführliche Tests und Untersuchungen erforderlich, die eine umfassende Analyse der Leistung des Reinforcement-Learning-Agenten in Bezug auf verschiedene Problemgrößen ermöglichen. Erst nach gründlicher Analyse und Evaluation können valide Schlussfolgerungen gezogen werden.
+Weiterhin muss geklärt werden, ob sich die Präzision der Lösungen generell verringert, je mehr Dimensionen das Problem aufweist. Zur Beantwortung dieser Frage bedarf es detaillierter Tests und eingehender Untersuchungen, die es erlauben, die Effektivität des Reinforcement-Learning-Agenten bei unterschiedlichen Problemumfängen zu bewerten. Valide Schlüsse lassen sich erst nach einer umfassenden Analyse und sorgfältigen Bewertung ziehen.
 \\
 
 Abschließend ist anzumerken, dass neben den bereits diskutierten Parametern eine Vielzahl weiterer Faktoren die Lösungsfindung und die Qualität der Lösung beeinflussen können. Diese zusätzlichen Faktoren können die Effektivität des Verfahrens beeinträchtigen und sollten daher ebenfalls berücksichtigt werden. Dazu gehören:
@@ -815,8 +780,6 @@ Abschließend ist anzumerken, dass neben den bereits diskutierten Parametern ein
 	\item Die Gestaltung der Belohnungsfunktion
 	\item Der zugrunde liegende RL-Algorithmus mit allen zugehörigen beeinflussbaren Hyperparametern, wie Lernrate, Batch-Size usw.
 \end{itemize}
-
-Zusätzlich zu den diskutierten Parametern beeinflussen eine Vielzahl weiterer Faktoren die Lösungsfindung und -qualität. Eine tiefere Analyse des Einflusses dieser Parameter in Bezug auf die spezifische Problemstellung ist daher von entscheidender Bedeutung.
 
 Diese Arbeit bietet somit Einblicke in die Möglichkeiten und Herausforderungen bei der Anwendung von Reinforcement-Learning zur Lösung nichtlinearer Gleichungssysteme und legt den Grundstein für weitere Untersuchungen auf diesem Gebiet. 
 
